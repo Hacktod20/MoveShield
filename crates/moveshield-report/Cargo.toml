@@ -1,0 +1,18 @@
+[package]
+name = "moveshield-report"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+moveshield-core = { path = "../moveshield-core" }
+moveshield-compiler = { path = "../moveshield-compiler" }
+moveshield-ir = { path = "../moveshield-ir" }
+moveshield-graph = { path = "../moveshield-graph" }
+moveshield-knowledge = { path = "../moveshield-knowledge" }
+moveshield-rules = { path = "../moveshield-rules" }
+moveshield-policy = { path = "../moveshield-policy" }
+moveshield-findings = { path = "../moveshield-findings" }
+moveshield-config = { path = "../moveshield-config" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+chrono = { workspace = true }

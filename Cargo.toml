@@ -1,0 +1,27 @@
+[workspace]
+resolver = "2"
+members = [
+    "crates/moveshield-core",
+    "crates/moveshield-compiler",
+    "crates/moveshield-ir",
+    "crates/moveshield-graph",
+    "crates/moveshield-knowledge",
+    "crates/moveshield-rules",
+    "crates/moveshield-policy",
+    "crates/moveshield-findings",
+    "crates/moveshield-report",
+    "crates/moveshield-cache",
+    "crates/moveshield-config",
+    "crates/moveshield-sdk",
+    "crates/moveshield-utils",
+    "crates/moveshield-testing",
+    "crates/moveshield-macros",
+    "apps/cli"
+]
+
+[workspace.dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"
+clap = { version = "4.4", features = ["derive"] }
+chrono = { version = "0.4", features = ["serde"] }
