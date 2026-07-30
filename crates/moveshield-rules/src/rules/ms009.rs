@@ -61,13 +61,19 @@ impl Rule for MS009 {
         for package in &store.project.packages {
             for module in &package.modules {
                 for func in &module.functions {
-                    let has_treasury_cap = func.parameters.iter().any(|p| p.contains("TreasuryCap"));
-                    let is_public_or_entry = func.visibility == "public" || func.visibility == "entry";
+                    let has_treasury_cap =
+                        func.parameters.iter().any(|p| p.contains("TreasuryCap"));
+                    let is_public_or_entry =
+                        func.visibility == "public" || func.visibility == "entry";
 
                     let performs_transfer = func.calls.iter().any(|c| c.contains("transfer"));
-                    let body_has_transfer = func.body_text.contains("transfer::") || func.body_text.contains("public_transfer");
+                    let body_has_transfer = func.body_text.contains("transfer::")
+                        || func.body_text.contains("public_transfer");
 
-                    if has_treasury_cap && is_public_or_entry && (performs_transfer || body_has_transfer) {
+                    if has_treasury_cap
+                        && is_public_or_entry
+                        && (performs_transfer || body_has_transfer)
+                    {
                         let evidence = vec![
                             Evidence {
                                 kind: EvidenceKind::MatchedCapability,

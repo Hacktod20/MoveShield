@@ -64,7 +64,10 @@ impl Rule for MS011 {
                     let has_predictable_source = func.body_text.contains("tx_context::digest")
                         || func.body_text.contains("digest(")
                         || func.body_text.contains("epoch_time")
-                        || func.calls.iter().any(|c| c.contains("digest") || c.contains("epoch_time"));
+                        || func
+                            .calls
+                            .iter()
+                            .any(|c| c.contains("digest") || c.contains("epoch_time"));
 
                     let is_lottery_or_gaming = func.name.contains("random")
                         || func.name.contains("rand")

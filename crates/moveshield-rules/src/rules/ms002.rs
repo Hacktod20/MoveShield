@@ -67,10 +67,14 @@ impl Rule for MS002 {
                     }
 
                     let mut matched_calls = Vec::new();
+                    let resolved_calls =
+                        store.get_resolved_calls(&module.address, &module.name, &func.name);
 
-                    for call in &func.calls {
-                        if call.contains("public_transfer") || call.contains("public_share_object") {
-                            matched_calls.push(call.clone());
+                    for call in resolved_calls {
+                        if call == "sui::transfer::public_transfer"
+                            || call == "sui::transfer::public_share_object"
+                        {
+                            matched_calls.push(call);
                         }
                     }
 
@@ -79,7 +83,10 @@ impl Rule for MS002 {
                         for call in &matched_calls {
                             evidence.push(Evidence {
                                 kind: EvidenceKind::MatchedCall,
-                                message: format!("Found call to unrestricted transfer function: '{}'", call),
+                                message: format!(
+                                    "Found call to unrestricted transfer function: '{}'",
+                                    call
+                                ),
                                 snippet: Some(func.body_text.clone()),
                                 line: Some(func.location.start_line),
                                 column: Some(func.location.start_column),

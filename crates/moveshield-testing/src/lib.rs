@@ -20,7 +20,9 @@ mod tests {
     fn test_integration_vulnerable_fixtures() {
         let path = Path::new("../../tests/integration/fixtures/vulnerable");
         let adapter = DevelopmentParserAdapter;
-        let project = adapter.compile(path).expect("Failed to compile vulnerable fixtures");
+        let project = adapter
+            .compile(path)
+            .expect("Failed to compile vulnerable fixtures");
 
         let ir = MoveIR::from_project(&project);
         let call_graph = CallGraph::build(ir);
@@ -62,7 +64,9 @@ mod tests {
     fn test_integration_safe_fixtures() {
         let path = Path::new("../../tests/integration/fixtures/safe");
         let adapter = DevelopmentParserAdapter;
-        let project = adapter.compile(path).expect("Failed to compile safe fixtures");
+        let project = adapter
+            .compile(path)
+            .expect("Failed to compile safe fixtures");
 
         let ir = MoveIR::from_project(&project);
         let call_graph = CallGraph::build(ir);
@@ -75,7 +79,11 @@ mod tests {
         for rule in &rules {
             let findings = rule.run(&store, &config);
             for finding in &findings {
-                println!("SAFE FIXTURES FAILURE - Triggered rule: {} with message: {}", rule.id(), finding.message);
+                println!(
+                    "SAFE FIXTURES FAILURE - Triggered rule: {} with message: {}",
+                    rule.id(),
+                    finding.message
+                );
             }
             total_findings += findings.len();
         }
