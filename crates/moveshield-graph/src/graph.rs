@@ -1,6 +1,6 @@
 //! Call Graph construction and traversal engine.
 
-use moveshield_ir::{MoveIR, MoveFunction};
+use moveshield_ir::{MoveFunction, MoveIR};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -47,13 +47,9 @@ impl CallGraph {
                 let caller_fq_id = format!("{}::{}", module_key, fn_name);
 
                 for raw_call in &function.calls {
-                    if let Some(callee_fq_id) = resolve_call(
-                        &module.address,
-                        &module.name,
-                        raw_call,
-                        &all_functions,
-                        &ir,
-                    ) {
+                    if let Some(callee_fq_id) =
+                        resolve_call(&module.address, &module.name, raw_call, &all_functions, &ir)
+                    {
                         // Avoid adding duplicate call edges
                         let out_list = callees.entry(caller_fq_id.clone()).or_default();
                         if !out_list.contains(&callee_fq_id) {
@@ -79,12 +75,18 @@ impl CallGraph {
 
     /// Returns the list of functions that the given function calls.
     pub fn get_callees(&self, caller: &str) -> &[String] {
-        self.callees.get(caller).map(|v| v.as_slice()).unwrap_or(&[])
+        self.callees
+            .get(caller)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Returns the list of functions that call the given function.
     pub fn get_callers(&self, callee: &str) -> &[String] {
-        self.callers.get(callee).map(|v| v.as_slice()).unwrap_or(&[])
+        self.callers
+            .get(callee)
+            .map(|v| v.as_slice())
+            .unwrap_or(&[])
     }
 
     /// Checks if a function is recursive (contains a path to itself).
@@ -212,7 +214,7 @@ fn resolve_call(
 mod tests {
     use super::*;
     use moveshield_core::models::Location;
-    use moveshield_ir::{MoveProject, MoveModule, MoveFunction, MoveIR};
+    use moveshield_ir::{MoveFunction, MoveIR, MoveModule, MoveProject};
 
     #[test]
     fn test_call_graph_basic() {

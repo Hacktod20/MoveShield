@@ -1,10 +1,16 @@
 //! MoveShield Policy Engine for filtering and resolving policy overrides.
 
-use moveshield_core::models::Finding;
 use moveshield_config::Config;
+use moveshield_core::models::Finding;
 
 /// Policy Engine to apply organizational filters and override severities.
 pub struct PolicyEngine;
+
+impl Default for PolicyEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
 
 impl PolicyEngine {
     /// Creates a new PolicyEngine instance.

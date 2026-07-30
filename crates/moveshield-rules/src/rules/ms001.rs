@@ -1,9 +1,9 @@
 //! MS001: Cyclomatic Complexity Rule.
 
-use moveshield_core::models::{Finding, Confidence, Severity, RuleCategory};
-use moveshield_knowledge::KnowledgeStore;
-use moveshield_config::Config;
 use crate::Rule;
+use moveshield_config::Config;
+use moveshield_core::models::{Confidence, Finding, RuleCategory, Severity};
+use moveshield_knowledge::KnowledgeStore;
 
 /// MS001: Cyclomatic Complexity Rule.
 /// Detects functions with high cyclomatic complexity that are hard to maintain and test.

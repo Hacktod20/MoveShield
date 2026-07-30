@@ -3,8 +3,8 @@
 use moveshield_core::errors::{Error, Result};
 use moveshield_core::models::{Field, Function, Location, Module, Package, Project, Struct};
 use std::collections::HashMap;
-use std::path::Path;
 use std::fs;
+use std::path::Path;
 
 use crate::discovery::ProjectDiscovery;
 
@@ -20,18 +20,18 @@ pub struct DevelopmentParserAdapter;
 
 impl CompilerAdapter for DevelopmentParserAdapter {
     fn compile(&self, path: &Path) -> Result<Project> {
-        let (package_name, addresses, source_files) = ProjectDiscovery::discover(path)
-            .map_err(|e| Error::Compiler(e))?;
+        let (package_name, addresses, source_files) =
+            ProjectDiscovery::discover(path).map_err(Error::Compiler)?;
 
         let mut modules = Vec::new();
 
         for file_path in source_files {
-            let relative_file = file_path.strip_prefix(path)
+            let relative_file = file_path
+                .strip_prefix(path)
                 .unwrap_or(&file_path)
                 .to_path_buf();
 
-            let content = fs::read_to_string(&file_path)
-                .map_err(|e| Error::Io(e))?;
+            let content = fs::read_to_string(&file_path).map_err(Error::Io)?;
 
             let file_modules = parse_move_file(&content, &relative_file, &addresses)?;
             modules.extend(file_modules);
@@ -124,7 +124,11 @@ fn find_matching_block(chars: &[char], start_idx: usize) -> Option<(usize, usize
 }
 
 /// Parses a Move file and extracts modules, functions, and structs.
-fn parse_move_file(content: &str, relative_path: &Path, addresses: &HashMap<String, String>) -> Result<Vec<Module>> {
+fn parse_move_file(
+    content: &str,
+    relative_path: &Path,
+    addresses: &HashMap<String, String>,
+) -> Result<Vec<Module>> {
     let stripped = strip_comments(content);
     let chars: Vec<char> = stripped.chars().collect();
     let mut modules = Vec::new();
@@ -138,7 +142,11 @@ fn parse_move_file(content: &str, relative_path: &Path, addresses: &HashMap<Stri
                 name_start += 1;
             }
             let mut name_end = name_start;
-            while name_end < chars.len() && (chars[name_end].is_alphanumeric() || chars[name_end] == '_' || chars[name_end] == ':') {
+            while name_end < chars.len()
+                && (chars[name_end].is_alphanumeric()
+                    || chars[name_end] == '_'
+                    || chars[name_end] == ':')
+            {
                 name_end += 1;
             }
 
@@ -157,7 +165,8 @@ fn parse_move_file(content: &str, relative_path: &Path, addresses: &HashMap<Stri
                 // Find the module brace block
                 if let Some((block_start, block_end)) = find_matching_block(&chars, name_end) {
                     let module_block = &chars[block_start..block_end];
-                    let (functions, structs) = parse_module_contents(module_block, relative_path, &module_name)?;
+                    let (functions, structs) =
+                        parse_module_contents(module_block, relative_path, &module_name)?;
 
                     modules.push(Module {
                         name: module_name,
@@ -179,7 +188,11 @@ fn parse_move_file(content: &str, relative_path: &Path, addresses: &HashMap<Stri
 }
 
 /// Parses the contents of a module to extract functions and structs.
-fn parse_module_contents(chars: &[char], relative_path: &Path, current_module: &str) -> Result<(Vec<Function>, Vec<Struct>)> {
+fn parse_module_contents(
+    chars: &[char],
+    relative_path: &Path,
+    current_module: &str,
+) -> Result<(Vec<Function>, Vec<Struct>)> {
     let mut functions = Vec::new();
     let mut structs = Vec::new();
 
@@ -192,7 +205,9 @@ fn parse_module_contents(chars: &[char], relative_path: &Path, current_module: &
                 name_start += 1;
             }
             let mut name_end = name_start;
-            while name_end < chars.len() && (chars[name_end].is_alphanumeric() || chars[name_end] == '_') {
+            while name_end < chars.len()
+                && (chars[name_end].is_alphanumeric() || chars[name_end] == '_')
+            {
                 name_end += 1;
             }
 
@@ -205,7 +220,7 @@ fn parse_module_contents(chars: &[char], relative_path: &Path, current_module: &
                     let fields = parse_struct_fields(&fields_block);
 
                     // Scan abilities before `{`
-                    let pre_block_str: String = chars[name_end..block_start-1].iter().collect();
+                    let pre_block_str: String = chars[name_end..block_start - 1].iter().collect();
                     let abilities = parse_abilities(&pre_block_str);
 
                     structs.push(Struct {
@@ -248,8 +263,10 @@ fn parse_module_contents(chars: &[char], relative_path: &Path, current_module: &
                 words_before.push(word);
             }
 
-            if words_before.contains(&"public(friend)".to_string()) ||
-               (words_before.contains(&"public".to_string()) && words_before.contains(&"friend".to_string())) {
+            if words_before.contains(&"public(friend)".to_string())
+                || (words_before.contains(&"public".to_string())
+                    && words_before.contains(&"friend".to_string()))
+            {
                 visibility = "public(friend)".to_string();
             } else if words_before.contains(&"public".to_string()) {
                 visibility = "public".to_string();
@@ -262,7 +279,9 @@ fn parse_module_contents(chars: &[char], relative_path: &Path, current_module: &
                 name_start += 1;
             }
             let mut name_end = name_start;
-            while name_end < chars.len() && (chars[name_end].is_alphanumeric() || chars[name_end] == '_') {
+            while name_end < chars.len()
+                && (chars[name_end].is_alphanumeric() || chars[name_end] == '_')
+            {
                 name_end += 1;
             }
 
@@ -376,16 +395,12 @@ fn calculate_complexity(body: &[char]) -> usize {
     let mut complexity = 1;
     let mut i = 0;
     while i < body.len() {
-        if is_word_at(body, i, "if") {
+        if is_word_at(body, i, "if") || is_word_at(body, i, "while") || is_word_at(body, i, "loop")
+        {
             complexity += 1;
-        } else if is_word_at(body, i, "while") {
-            complexity += 1;
-        } else if is_word_at(body, i, "loop") {
-            complexity += 1;
-        } else if i + 1 < body.len() && body[i] == '&' && body[i + 1] == '&' {
-            complexity += 1;
-            i += 1;
-        } else if i + 1 < body.len() && body[i] == '|' && body[i + 1] == '|' {
+        } else if i + 1 < body.len()
+            && ((body[i] == '&' && body[i + 1] == '&') || (body[i] == '|' && body[i + 1] == '|'))
+        {
             complexity += 1;
             i += 1;
         }
@@ -398,7 +413,8 @@ fn calculate_complexity(body: &[char]) -> usize {
 fn extract_calls(body: &[char], current_module: &str) -> Vec<String> {
     let mut calls = Vec::new();
     let keywords = vec![
-        "if", "else", "while", "loop", "return", "abort", "assert", "let", "mut", "fun", "struct", "public", "entry"
+        "if", "else", "while", "loop", "return", "abort", "assert", "let", "mut", "fun", "struct",
+        "public", "entry",
     ];
 
     let mut i = 0;
@@ -406,7 +422,9 @@ fn extract_calls(body: &[char], current_module: &str) -> Vec<String> {
         if body[i].is_alphabetic() || body[i] == '_' {
             // Extract the potential identifier (can include alphanumeric, _, and :)
             let mut end = i;
-            while end < body.len() && (body[end].is_alphanumeric() || body[end] == '_' || body[end] == ':') {
+            while end < body.len()
+                && (body[end].is_alphanumeric() || body[end] == '_' || body[end] == ':')
+            {
                 end += 1;
             }
 
@@ -454,7 +472,9 @@ mod tests {
 
     #[test]
     fn test_calculate_complexity() {
-        let body_chars: Vec<char> = "if (true) { while (false) { loop { if (x && y || z) {} } } }".chars().collect();
+        let body_chars: Vec<char> = "if (true) { while (false) { loop { if (x && y || z) {} } } }"
+            .chars()
+            .collect();
         // 1 (start) + if (1) + while (1) + loop (1) + if (1) + && (1) + || (1) = 7
         let complexity = calculate_complexity(&body_chars);
         assert_eq!(complexity, 7);
@@ -462,7 +482,9 @@ mod tests {
 
     #[test]
     fn test_extract_calls() {
-        let body_chars: Vec<char> = "clean::calculate_fee(10); foo(20); if (true) { bar(); }".chars().collect();
+        let body_chars: Vec<char> = "clean::calculate_fee(10); foo(20); if (true) { bar(); }"
+            .chars()
+            .collect();
         let calls = extract_calls(&body_chars, "my_module");
         assert!(calls.contains(&"clean::calculate_fee".to_string()));
         assert!(calls.contains(&"my_module::foo".to_string()));
