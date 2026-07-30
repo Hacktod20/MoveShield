@@ -65,7 +65,8 @@ impl Rule for MS008 {
                         || func.name.contains("authorize_upgrade")
                         || func.name.contains("publish");
 
-                    let is_public_or_entry = func.visibility == "public" || func.visibility == "entry";
+                    let is_public_or_entry =
+                        func.visibility == "public" || func.visibility == "entry";
 
                     let has_upgrade_cap = func.parameters.iter().any(|p| p.contains("UpgradeCap"));
 
@@ -73,18 +74,22 @@ impl Rule for MS008 {
                         let evidence = vec![
                             Evidence {
                                 kind: EvidenceKind::MatchedFunction,
-                                message: format!("Publicly accessible upgrade-related function: '{}'", func.name),
+                                message: format!(
+                                    "Publicly accessible upgrade-related function: '{}'",
+                                    func.name
+                                ),
                                 snippet: Some(format!("fun {}(...)", func.name)),
                                 line: Some(func.location.start_line),
                                 column: Some(func.location.start_column),
                             },
                             Evidence {
                                 kind: EvidenceKind::MatchedPattern,
-                                message: "Missing 'UpgradeCap' validation in signature.".to_string(),
+                                message: "Missing 'UpgradeCap' validation in signature."
+                                    .to_string(),
                                 snippet: Some(func.body_text.clone()),
                                 line: Some(func.location.start_line),
                                 column: Some(func.location.start_column),
-                            }
+                            },
                         ];
 
                         findings.push(Finding {

@@ -65,9 +65,9 @@ impl Rule for MS004 {
                         continue;
                     }
 
-                    // Look for mutable reference parameters likely representing shared/global resources
                     let mut mutable_shared_params = Vec::new();
-                    let mut has_capability = false;
+                    let has_capability =
+                        store.has_capability_param(&module.address, &module.name, &func.name);
 
                     for param in &func.parameters {
                         let is_mut = param.contains("&mut");
@@ -82,10 +82,6 @@ impl Rule for MS004 {
 
                         if is_mut && is_shared_target {
                             mutable_shared_params.push(param.clone());
-                        }
-
-                        if param.contains("Cap") || param.contains("Capability") {
-                            has_capability = true;
                         }
                     }
 

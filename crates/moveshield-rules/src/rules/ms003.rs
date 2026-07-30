@@ -61,25 +61,26 @@ impl Rule for MS003 {
         for package in &store.project.packages {
             for module in &package.modules {
                 for func in &module.functions {
-                    // Check if any parameter represents a Capability
-                    let has_cap_param = func.parameters.iter().any(|p| {
-                        p.contains("Cap") || p.contains("Capability")
-                    });
+                    let has_cap_param =
+                        store.has_capability_param(&module.address, &module.name, &func.name);
+                    let is_public_or_entry =
+                        func.visibility == "public" || func.visibility == "entry";
 
-                    // Check if function visibility is public or entry
-                    let is_public_or_entry = func.visibility == "public" || func.visibility == "entry";
+                    let transfers = store.get_transfers(&module.address, &module.name, &func.name);
+                    let leaks_cap = transfers
+                        .iter()
+                        .any(|tr| store.is_capability(&tr.asset_type));
 
-                    // Check if it performs a transfer of the capability
-                    let performs_transfer = func.calls.iter().any(|c| c.contains("transfer"));
-                    let body_has_transfer = func.body_text.contains("transfer::") || func.body_text.contains("public_transfer");
-
-                    if has_cap_param && is_public_or_entry && (performs_transfer || body_has_transfer) {
+                    if has_cap_param && is_public_or_entry && leaks_cap {
                         let mut evidence = Vec::new();
                         for param in &func.parameters {
                             if param.contains("Cap") || param.contains("Capability") {
                                 evidence.push(Evidence {
                                     kind: EvidenceKind::MatchedCapability,
-                                    message: format!("Privileged capability parameter: '{}'", param),
+                                    message: format!(
+                                        "Privileged capability parameter: '{}'",
+                                        param
+                                    ),
                                     snippet: Some(format!("fun {}(...)", func.name)),
                                     line: Some(func.location.start_line),
                                     column: Some(func.location.start_column),
@@ -87,13 +88,20 @@ impl Rule for MS003 {
                             }
                         }
 
-                        evidence.push(Evidence {
-                            kind: EvidenceKind::MatchedCall,
-                            message: "Function performs object transfer on the capability.".to_string(),
-                            snippet: Some(func.body_text.clone()),
-                            line: Some(func.location.start_line),
-                            column: Some(func.location.start_column),
-                        });
+                        for tr in &transfers {
+                            if store.is_capability(&tr.asset_type) {
+                                evidence.push(Evidence {
+                                    kind: EvidenceKind::MatchedCall,
+                                    message: format!(
+                                        "Function performs object transfer on the capability '{}' of type '{}' to recipient '{}'.",
+                                        tr.asset_name, tr.asset_type, tr.recipient
+                                    ),
+                                    snippet: Some(func.body_text.clone()),
+                                    line: Some(func.location.start_line),
+                                    column: Some(func.location.start_column),
+                                });
+                            }
+                        }
 
                         findings.push(Finding {
                             rule_id: self.id().to_string(),

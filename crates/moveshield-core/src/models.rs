@@ -69,6 +69,66 @@ pub struct Package {
     pub modules: Vec<Module>,
 }
 
+/// Represents a module-level `use` statement in Move.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UseStatement {
+    /// Optional address of the imported module (e.g., "sui" or "0x2").
+    pub address: Option<String>,
+    /// Module being imported (e.g., "transfer").
+    pub module: String,
+    /// Specific member or members imported (e.g., "public_transfer", or empty/Self for whole module).
+    pub members: Vec<UseMember>,
+}
+
+/// Represents a specific imported member under a `use` statement.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub struct UseMember {
+    /// Name of the member or "Self".
+    pub name: String,
+    /// Optional local alias (e.g., `use sui::tx_context::TxContext as Ctx;`).
+    pub alias: Option<String>,
+}
+
+/// Represents a parsed AST node inside a function body.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+pub enum AstNode {
+    /// Variable binding (e.g. `let x = 5;` or `let mut x: u64 = 10;`).
+    Let {
+        name: String,
+        is_mut: bool,
+        type_annotation: Option<String>,
+        initializer: Option<Box<AstNode>>,
+    },
+    /// Assignment / mutation statement (e.g. `x = y;` or `state.value = val;`).
+    Assign { target: String, value: Box<AstNode> },
+    /// A function call or method invocation (e.g. `transfer::public_transfer(cap, recipient)`).
+    Call {
+        function_name: String,
+        arguments: Vec<AstNode>,
+    },
+    /// Variable/symbol identifier.
+    Identifier(String),
+    /// A raw literal (e.g. `5`, `0x2`, `true`).
+    Literal(String),
+    /// Code block containing a list of sub-nodes.
+    Block(Vec<AstNode>),
+    /// If conditional branch.
+    If {
+        condition: Box<AstNode>,
+        then_branch: Box<AstNode>,
+        else_branch: Option<Box<AstNode>>,
+    },
+    /// While loop.
+    While {
+        condition: Box<AstNode>,
+        body: Box<AstNode>,
+    },
+    /// Infinite loop.
+    Loop { body: Box<AstNode> },
+    /// Unparsed / generic fallback expression string.
+    Expression(String),
+}
+
 /// Represents a Move module.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Module {
@@ -82,6 +142,9 @@ pub struct Module {
     pub functions: Vec<Function>,
     /// Structs defined in this module.
     pub structs: Vec<Struct>,
+    /// Module-level import/use declarations.
+    #[serde(default)]
+    pub use_statements: Vec<UseStatement>,
 }
 
 /// Represents a Move function.
@@ -102,6 +165,8 @@ pub struct Function {
     pub parameters: Vec<String>,
     /// The body text of the function.
     pub body_text: String,
+    /// Rich AST structure parsed from the function body.
+    pub ast: Option<AstNode>,
 }
 
 /// Represents a Move struct.

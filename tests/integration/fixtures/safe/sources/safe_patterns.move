@@ -13,7 +13,11 @@ module safe::safe_patterns {
         value: u64,
     }
 
-    /// Safe init function
+    struct StandardAsset has key, store {
+        id: UID,
+    }
+
+    /// Safe init function (init is excluded from public transfer warnings)
     fun init(ctx: &mut TxContext) {
         let admin = AdminCap { id: object::new(ctx) };
         transfer::public_transfer(admin, tx_context::sender(ctx));

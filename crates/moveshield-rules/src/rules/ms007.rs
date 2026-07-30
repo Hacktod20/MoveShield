@@ -63,14 +63,23 @@ impl Rule for MS007 {
                 for func in &module.functions {
                     let adds_field = func.body_text.contains("dynamic_field::add")
                         || func.body_text.contains("dynamic_object_field::add")
-                        || func.calls.iter().any(|c| c.contains("dynamic_field::add") || c.contains("dynamic_object_field::add"));
+                        || func.calls.iter().any(|c| {
+                            c.contains("dynamic_field::add")
+                                || c.contains("dynamic_object_field::add")
+                        });
 
                     let checks_existence = func.body_text.contains("exists_")
                         || func.body_text.contains("exists(")
                         || func.body_text.contains("has_field")
-                        || func.calls.iter().any(|c| c.contains("exists") || c.contains("has_field"));
+                        || func
+                            .calls
+                            .iter()
+                            .any(|c| c.contains("exists") || c.contains("has_field"));
 
-                    let has_capability = func.parameters.iter().any(|p| p.contains("Cap") || p.contains("Capability"));
+                    let has_capability = func
+                        .parameters
+                        .iter()
+                        .any(|p| p.contains("Cap") || p.contains("Capability"));
 
                     if adds_field && !checks_existence && !has_capability {
                         let evidence = vec![

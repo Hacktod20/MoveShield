@@ -164,7 +164,13 @@ impl ReportEngine {
                     Severity::Informational => "\x1b[36m[Info]\x1b[0m",
                 };
 
-                println!("  {}. {} {} - {}", idx + 1, sev_label, finding.rule_id, finding.title);
+                println!(
+                    "  {}. {} {} - {}",
+                    idx + 1,
+                    sev_label,
+                    finding.rule_id,
+                    finding.title
+                );
                 println!(
                     "     File:       {:?}:{}:{}",
                     finding.location.file,
@@ -186,7 +192,11 @@ impl ReportEngine {
                         println!("       * [{:?}] {}", ev.kind, ev.message);
                         if let Some(ref snip) = ev.snippet {
                             // Trim snippet and display it nicely indented
-                            let trimmed: String = snip.lines().take(3).collect::<Vec<&str>>().join("\n         ");
+                            let trimmed: String = snip
+                                .lines()
+                                .take(3)
+                                .collect::<Vec<&str>>()
+                                .join("\n         ");
                             println!("         Snippet: {}", trimmed);
                         }
                     }
@@ -262,9 +272,7 @@ impl ReportEngine {
             results.push(SarifResult {
                 rule_id: finding.rule_id.clone(),
                 level: sarif_level.to_string(),
-                message: SarifMessage {
-                    text: message_text,
-                },
+                message: SarifMessage { text: message_text },
                 locations: vec![SarifLocation {
                     physical_location: SarifPhysicalLocation {
                         artifact_location: SarifArtifactLocation {

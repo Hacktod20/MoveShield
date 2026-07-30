@@ -237,6 +237,7 @@ mod tests {
                 calls: Vec::new(),
                 parameters: Vec::new(),
                 body_text: String::new(),
+                ast: None,
             },
         );
 
@@ -262,6 +263,7 @@ mod tests {
                 ],
                 parameters: Vec::new(),
                 body_text: String::new(),
+                ast: None,
             },
         );
 
@@ -272,6 +274,7 @@ mod tests {
                 name: "clean".to_string(),
                 address: "0x42".to_string(),
                 functions: clean_fns,
+                use_statements: Vec::new(),
             },
         );
         modules.insert(
@@ -280,6 +283,7 @@ mod tests {
                 name: "complex".to_string(),
                 address: "0x42".to_string(),
                 functions: complex_fns,
+                use_statements: Vec::new(),
             },
         );
 
@@ -288,6 +292,7 @@ mod tests {
                 name: "test_project".to_string(),
                 modules,
             },
+            function_semantics: HashMap::new(),
         };
 
         let graph = CallGraph::build(ir);

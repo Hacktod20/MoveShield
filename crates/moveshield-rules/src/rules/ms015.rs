@@ -65,15 +65,16 @@ impl Rule for MS015 {
                     let occurrences = func.body_text.matches("object::new").count();
 
                     if occurrences >= 2 {
-                        let evidence = vec![
-                            Evidence {
-                                kind: EvidenceKind::MatchedPattern,
-                                message: format!("Found {} calls to 'object::new' in function body.", occurrences),
-                                snippet: Some(func.body_text.clone()),
-                                line: Some(func.location.start_line),
-                                column: Some(func.location.start_column),
-                            }
-                        ];
+                        let evidence = vec![Evidence {
+                            kind: EvidenceKind::MatchedPattern,
+                            message: format!(
+                                "Found {} calls to 'object::new' in function body.",
+                                occurrences
+                            ),
+                            snippet: Some(func.body_text.clone()),
+                            line: Some(func.location.start_line),
+                            column: Some(func.location.start_column),
+                        }];
 
                         findings.push(Finding {
                             rule_id: self.id().to_string(),

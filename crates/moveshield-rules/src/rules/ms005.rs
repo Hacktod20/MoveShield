@@ -79,7 +79,9 @@ impl Rule for MS005 {
                         || func.name.contains("set_admin")
                         || func.name.contains("pause");
 
-                    let calls_sensitive_ops = func.calls.iter().any(|c| {
+                    let resolved_calls =
+                        store.get_resolved_calls(&module.address, &module.name, &func.name);
+                    let calls_sensitive_ops = resolved_calls.iter().any(|c| {
                         c.contains("mint")
                             || c.contains("burn")
                             || c.contains("withdraw")
@@ -88,12 +90,18 @@ impl Rule for MS005 {
 
                     if is_sensitive_name || calls_sensitive_ops {
                         // Check if function signature contains a Capability parameter or a validation context
-                        let has_capability_or_ctx = func.parameters.iter().any(|p| {
-                            p.contains("Cap")
-                                || p.contains("Capability")
-                                || p.contains("TxContext")
-                                || p.contains("signer")
-                        });
+                        let has_capability_or_ctx =
+                            store.has_capability_param(&module.address, &module.name, &func.name)
+                                || store.has_tx_context_param(
+                                    &module.address,
+                                    &module.name,
+                                    &func.name,
+                                )
+                                || store.has_signer_param(
+                                    &module.address,
+                                    &module.name,
+                                    &func.name,
+                                );
 
                         if !has_capability_or_ctx {
                             let evidence = vec![

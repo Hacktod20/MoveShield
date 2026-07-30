@@ -77,9 +77,9 @@ impl Rule for MS010 {
 
                     for field in &s.fields {
                         // Check if the field type matches any of the defined key structs
-                        let wraps_key_object = key_structs.iter().any(|key_name| {
-                            field.type_str.contains(key_name)
-                        });
+                        let wraps_key_object = key_structs
+                            .iter()
+                            .any(|key_name| field.type_str.contains(key_name));
 
                         if wraps_key_object {
                             let loc = Location {
