@@ -1,0 +1,23 @@
+[package]
+name = "moveshield-cli"
+version = "0.1.0"
+edition = "2021"
+
+[[bin]]
+name = "moveshield"
+path = "src/main.rs"
+
+[dependencies]
+moveshield-core = { path = "../../crates/moveshield-core" }
+moveshield-config = { path = "../../crates/moveshield-config" }
+moveshield-compiler = { path = "../../crates/moveshield-compiler" }
+moveshield-ir = { path = "../../crates/moveshield-ir" }
+moveshield-graph = { path = "../../crates/moveshield-graph" }
+moveshield-knowledge = { path = "../../crates/moveshield-knowledge" }
+moveshield-rules = { path = "../../crates/moveshield-rules" }
+moveshield-policy = { path = "../../crates/moveshield-policy" }
+moveshield-findings = { path = "../../crates/moveshield-findings" }
+moveshield-report = { path = "../../crates/moveshield-report" }
+clap = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }

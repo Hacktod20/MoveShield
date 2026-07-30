@@ -1,0 +1,10 @@
+[package]
+name = "moveshield-compiler"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+moveshield-core = { path = "../moveshield-core" }
+serde = { workspace = true }
+serde_json = { workspace = true }
+toml = { workspace = true }
