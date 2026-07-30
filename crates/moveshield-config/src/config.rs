@@ -1,4 +1,5 @@
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fs;
 use std::path::Path;
 
@@ -13,12 +14,29 @@ pub struct Config {
     pub rules: RulesConfig,
 }
 
+/// A generic configuration per-rule.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct RuleConfig {
+    /// Whether this rule is enabled.
+    #[serde(default = "default_enabled")]
+    pub enabled: bool,
+    /// Optional severity override for findings produced by this rule.
+    pub severity_override: Option<String>,
+    /// Optional confidence override for findings produced by this rule.
+    pub confidence_override: Option<String>,
+    /// Optional max cyclomatic complexity for MS001, or general threshold parameter.
+    pub max_complexity: Option<usize>,
+}
+
 /// Rules section inside config.
 #[derive(Debug, Clone, Serialize, Deserialize, Default)]
 pub struct RulesConfig {
     /// Configuration for MS001 (Cyclomatic Complexity).
     #[serde(rename = "MS001")]
     pub ms001: Option<MS001Config>,
+    /// Catch-all generic configurations for other rules (MS002 - MS015).
+    #[serde(flatten)]
+    pub other_rules: HashMap<String, RuleConfig>,
 }
 
 /// Specific configuration for MS001 (Cyclomatic Complexity).
@@ -60,7 +78,21 @@ impl Config {
             version: 1,
             rules: RulesConfig {
                 ms001: Some(MS001Config::default()),
+                other_rules: HashMap::new(),
             },
+        }
+    }
+
+    /// Checks if a rule is enabled.
+    pub fn is_rule_enabled(&self, rule_id: &str) -> bool {
+        if rule_id == "MS001" {
+            self.rules.ms001.as_ref().map(|c| c.enabled).unwrap_or(true)
+        } else {
+            self.rules
+                .other_rules
+                .get(rule_id)
+                .map(|c| c.enabled)
+                .unwrap_or(true)
         }
     }
 

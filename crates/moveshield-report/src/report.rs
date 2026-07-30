@@ -164,15 +164,36 @@ impl ReportEngine {
                     Severity::Informational => "\x1b[36m[Info]\x1b[0m",
                 };
 
-                println!("  {}. {} {}", idx + 1, sev_label, finding.rule_id);
+                println!("  {}. {} {} - {}", idx + 1, sev_label, finding.rule_id, finding.title);
                 println!(
-                    "     Location:   {:?}:{}:{}",
+                    "     File:       {:?}:{}:{}",
                     finding.location.file,
                     finding.location.start_line,
                     finding.location.start_column
                 );
+                if !finding.module_name.is_empty() {
+                    println!("     Module:     {}", finding.module_name);
+                }
+                if !finding.function_name.is_empty() {
+                    println!("     Function:   {}", finding.function_name);
+                }
                 println!("     Message:    {}", finding.message);
+                println!("     Explanation:{}", finding.explanation);
+
+                if !finding.evidence.is_empty() {
+                    println!("     Evidence:");
+                    for ev in &finding.evidence {
+                        println!("       * [{:?}] {}", ev.kind, ev.message);
+                        if let Some(ref snip) = ev.snippet {
+                            // Trim snippet and display it nicely indented
+                            let trimmed: String = snip.lines().take(3).collect::<Vec<&str>>().join("\n         ");
+                            println!("         Snippet: {}", trimmed);
+                        }
+                    }
+                }
+
                 println!("     Fix:        {}", finding.suggested_fix);
+                println!("     Recommendation: {}", finding.recommendation);
                 if !finding.references.is_empty() {
                     println!("     References: {}", finding.references.join(", "));
                 }
@@ -193,22 +214,6 @@ impl ReportEngine {
     ) -> std::io::Result<()> {
         let mut rules_map = std::collections::HashMap::new();
 
-        // 1. Populate standard rules
-        rules_map.insert(
-            "MS001".to_string(),
-            SarifRule {
-                id: "MS001".to_string(),
-                name: "Cyclomatic Complexity".to_string(),
-                short_description: SarifMultiformatMessageString {
-                    text: "Detects functions with high cyclomatic complexity.".to_string(),
-                },
-                full_description: SarifMultiformatMessageString {
-                    text: "High cyclomatic complexity indicates that a function has too many decision paths. This makes the code harder to understand, test, maintain, and increases the likelihood of security and logical bugs.".to_string(),
-                },
-                help_uri: "https://docs.moveshield.com/rules/MS001".to_string(),
-            },
-        );
-
         let mut results = Vec::new();
         for finding in findings {
             let sarif_level = match finding.severity {
@@ -219,29 +224,46 @@ impl ReportEngine {
                 Severity::Informational => "note",
             };
 
-            // Ensure rule exists in rules_map, or add a dynamic placeholder
+            // Populate rules_map dynamically with standard metadata
             if !rules_map.contains_key(&finding.rule_id) {
                 rules_map.insert(
                     finding.rule_id.clone(),
                     SarifRule {
                         id: finding.rule_id.clone(),
-                        name: finding.rule_id.clone(),
+                        name: finding.title.clone(),
                         short_description: SarifMultiformatMessageString {
                             text: finding.message.clone(),
                         },
                         full_description: SarifMultiformatMessageString {
                             text: finding.explanation.clone(),
                         },
-                        help_uri: "".to_string(),
+                        help_uri: if !finding.references.is_empty() {
+                            finding.references[0].clone()
+                        } else {
+                            "".to_string()
+                        },
                     },
                 );
+            }
+
+            // Construct details including evidence messages
+            let mut message_text = format!(
+                "{}\n\nExplanation: {}\n\nFix: {}\n\nRecommendation: {}",
+                finding.message, finding.explanation, finding.suggested_fix, finding.recommendation
+            );
+
+            if !finding.evidence.is_empty() {
+                message_text.push_str("\n\nEvidence:");
+                for ev in &finding.evidence {
+                    message_text.push_str(&format!("\n- [{:?}] {}", ev.kind, ev.message));
+                }
             }
 
             results.push(SarifResult {
                 rule_id: finding.rule_id.clone(),
                 level: sarif_level.to_string(),
                 message: SarifMessage {
-                    text: format!("{}\n\nFix: {}", finding.message, finding.suggested_fix),
+                    text: message_text,
                 },
                 locations: vec![SarifLocation {
                     physical_location: SarifPhysicalLocation {

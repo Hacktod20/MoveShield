@@ -9,7 +9,6 @@ use moveshield_ir::MoveIR;
 use moveshield_knowledge::KnowledgeStore;
 use moveshield_policy::PolicyEngine;
 use moveshield_report::ReportEngine;
-use moveshield_rules::Rule;
 
 use std::path::{Path, PathBuf};
 use std::time::Instant;
@@ -76,13 +75,14 @@ fn main() {
             let call_graph = CallGraph::build(ir);
 
             // 5. Knowledge Store
-            let store = KnowledgeStore::new(call_graph);
+            let store = KnowledgeStore::new(call_graph, project.clone());
 
-            // 6. Rule Engine (MS001 Complexity)
+            // 6. Rule Engine - Run all registered rules dynamically
             let mut findings = Vec::new();
-            let rule_ms001 = moveshield_rules::MS001;
-            let rule_findings = rule_ms001.run(&store, &config);
-            findings.extend(rule_findings);
+            for rule in moveshield_rules::all_rules() {
+                let rule_findings = rule.run(&store, &config);
+                findings.extend(rule_findings);
+            }
 
             // 7. Policy Engine
             let policy_engine = PolicyEngine::new();

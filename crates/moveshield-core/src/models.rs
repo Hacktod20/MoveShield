@@ -98,6 +98,10 @@ pub struct Function {
     /// List of function names that this function calls.
     /// Format: "module_name::function_name" or "address::module_name::function_name".
     pub calls: Vec<String>,
+    /// Parameters of the function (e.g. "cap: &UpgradeCap").
+    pub parameters: Vec<String>,
+    /// The body text of the function.
+    pub body_text: String,
 }
 
 /// Represents a Move struct.
@@ -120,11 +124,40 @@ pub struct Field {
     pub type_str: String,
 }
 
+/// Type of evidence matched by a rule.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum EvidenceKind {
+    MatchedFunction,
+    MatchedCall,
+    MatchedPattern,
+    MatchedCapability,
+    MatchedObject,
+    MatchedExpression,
+    CallPath,
+}
+
+/// Represents evidence supporting a finding.
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Evidence {
+    /// The type of evidence.
+    pub kind: EvidenceKind,
+    /// A descriptive message of what was matched.
+    pub message: String,
+    /// Optional code snippet or symbol.
+    pub snippet: Option<String>,
+    /// Optional starting line number (1-based).
+    pub line: Option<usize>,
+    /// Optional starting column number (1-based).
+    pub column: Option<usize>,
+}
+
 /// Represents an engineering finding/violation produced by the rules.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Finding {
     /// Rule identifier (e.g., "MS001").
     pub rule_id: String,
+    /// User-friendly title of the finding.
+    pub title: String,
     /// Category of the rule.
     pub category: RuleCategory,
     /// Severity of the finding.
@@ -133,12 +166,20 @@ pub struct Finding {
     pub confidence: Confidence,
     /// Location in the code where the issue was found.
     pub location: Location,
+    /// The name of the module where the issue occurred.
+    pub module_name: String,
+    /// The name of the function where the issue occurred.
+    pub function_name: String,
     /// Quick summary message.
     pub message: String,
     /// Detailed explanation of the finding and why it matters.
     pub explanation: String,
+    /// List of evidence supporting the finding.
+    pub evidence: Vec<Evidence>,
     /// Suggested fix or remediation.
     pub suggested_fix: String,
+    /// Actionable remediation recommendation.
+    pub recommendation: String,
     /// Reference links (documentation, security guides, etc.).
     pub references: Vec<String>,
 }
