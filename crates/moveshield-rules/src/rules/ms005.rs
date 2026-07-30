@@ -89,21 +89,11 @@ impl Rule for MS005 {
                     });
 
                     if is_sensitive_name || calls_sensitive_ops {
-                        // Check if function signature contains a Capability parameter or a validation context
-                        let has_capability_or_ctx =
-                            store.has_capability_param(&module.address, &module.name, &func.name)
-                                || store.has_tx_context_param(
-                                    &module.address,
-                                    &module.name,
-                                    &func.name,
-                                )
-                                || store.has_signer_param(
-                                    &module.address,
-                                    &module.name,
-                                    &func.name,
-                                );
+                        // Check if function has access control, leveraging interprocedural analysis propagation
+                        let is_controlled =
+                            store.is_access_controlled(&module.address, &module.name, &func.name);
 
-                        if !has_capability_or_ctx {
+                        if !is_controlled {
                             let evidence = vec![
                                 Evidence {
                                     kind: EvidenceKind::MatchedFunction,
@@ -114,7 +104,7 @@ impl Rule for MS005 {
                                 },
                                 Evidence {
                                     kind: EvidenceKind::MatchedPattern,
-                                    message: "Missing 'Cap', 'Capability', 'TxContext' or 'signer' parameter.".to_string(),
+                                    message: "Missing 'Cap', 'Capability', 'TxContext' or 'signer' parameter on function or its calling paths.".to_string(),
                                     snippet: Some(func.body_text.clone()),
                                     line: Some(func.location.start_line),
                                     column: Some(func.location.start_column),

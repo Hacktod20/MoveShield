@@ -113,133 +113,6 @@ impl MoveIR {
     }
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use moveshield_core::models::{AstNode, Location, UseMember, UseStatement};
-    use std::path::PathBuf;
-
-    #[test]
-    fn test_resolve_type_path() {
-        let use_statements = vec![
-            UseStatement {
-                address: Some("sui".to_string()),
-                module: "transfer".to_string(),
-                members: vec![],
-            },
-            UseStatement {
-                address: Some("sui".to_string()),
-                module: "tx_context".to_string(),
-                members: vec![UseMember {
-                    name: "TxContext".to_string(),
-                    alias: Some("Ctx".to_string()),
-                }],
-            },
-        ];
-
-        // test fully qualified
-        assert_eq!(
-            resolve_type_path("0x2::coin::Coin", "my_module", "0x42", &use_statements),
-            "0x2::coin::Coin"
-        );
-
-        // test partially qualified via import
-        assert_eq!(
-            resolve_type_path(
-                "transfer::public_transfer",
-                "my_module",
-                "0x42",
-                &use_statements
-            ),
-            "sui::transfer::public_transfer"
-        );
-
-        // test alias member
-        assert_eq!(
-            resolve_type_path("Ctx", "my_module", "0x42", &use_statements),
-            "sui::tx_context::TxContext"
-        );
-
-        // test fallback to local module
-        assert_eq!(
-            resolve_type_path("MyStruct", "my_module", "0x42", &use_statements),
-            "0x42::my_module::MyStruct"
-        );
-    }
-
-    #[test]
-    fn test_analyze_function_semantic() {
-        let module = MoveModule {
-            name: "my_module".to_string(),
-            address: "0x42".to_string(),
-            functions: HashMap::new(),
-            use_statements: vec![UseStatement {
-                address: Some("sui".to_string()),
-                module: "transfer".to_string(),
-                members: vec![],
-            }],
-        };
-
-        // fun test_flow(cap: AdminCap, recipient: address) {
-        //     let mut x = cap;
-        //     transfer::public_transfer(x, recipient);
-        // }
-        let ast = AstNode::Block(vec![
-            AstNode::Let {
-                name: "x".to_string(),
-                is_mut: true,
-                type_annotation: None,
-                initializer: Some(Box::new(AstNode::Identifier("cap".to_string()))),
-            },
-            AstNode::Call {
-                function_name: "transfer::public_transfer".to_string(),
-                arguments: vec![
-                    AstNode::Identifier("x".to_string()),
-                    AstNode::Identifier("recipient".to_string()),
-                ],
-            },
-        ]);
-
-        let func = MoveFunction {
-            name: "test_flow".to_string(),
-            visibility: "public".to_string(),
-            location: Location {
-                file: PathBuf::from("test.move"),
-                start_line: 1,
-                start_column: 1,
-                end_line: 1,
-                end_column: 1,
-            },
-            complexity: 1,
-            calls: vec!["transfer::public_transfer".to_string()],
-            parameters: vec![
-                "cap: AdminCap".to_string(),
-                "recipient: address".to_string(),
-            ],
-            body_text: "".to_string(),
-            ast: Some(ast),
-        };
-
-        let semantic = FunctionSemantic::analyze(&func, &module);
-
-        assert_eq!(semantic.fq_name, "0x42::my_module::test_flow");
-        assert!(semantic.has_capability_param);
-        assert_eq!(
-            semantic.resolved_calls,
-            vec!["sui::transfer::public_transfer".to_string()]
-        );
-
-        // Assert data-flow correctly tracked asset type from 'cap' (parameter) to 'x' (local) to 'public_transfer' (sink)
-        assert_eq!(semantic.transfers.len(), 1);
-        assert_eq!(semantic.transfers[0].asset_name, "x");
-        assert_eq!(
-            semantic.transfers[0].asset_type,
-            "0x42::my_module::AdminCap"
-        );
-        assert_eq!(semantic.transfers[0].recipient, "recipient");
-    }
-}
-
 /// Resolves a type path using the module's imports and aliases.
 pub fn resolve_type_path(
     name: &str,
@@ -248,6 +121,25 @@ pub fn resolve_type_path(
     use_statements: &[UseStatement],
 ) -> String {
     let clean = name.trim();
+    if let Some(stripped) = clean.strip_prefix("&mut ") {
+        let base = resolve_type_path(stripped, current_module, current_address, use_statements);
+        return format!("&mut {}", base);
+    }
+    if let Some(stripped) = clean.strip_prefix("&") {
+        let base = resolve_type_path(stripped, current_module, current_address, use_statements);
+        return format!("&{}", base);
+    }
+    if let Some(angle_start) = clean.find('<') {
+        let angle_end = clean.rfind('>').unwrap_or(clean.len());
+        let base = &clean[..angle_start];
+        let inner = &clean[angle_start + 1..angle_end];
+        let resolved_base =
+            resolve_type_path(base, current_module, current_address, use_statements);
+        let resolved_inner =
+            resolve_type_path(inner, current_module, current_address, use_statements);
+        return format!("{}<{}>", resolved_base, resolved_inner);
+    }
+
     let parts: Vec<&str> = clean.split("::").collect();
     if parts.len() == 3 {
         return clean.to_string();
@@ -296,6 +188,25 @@ pub struct TransferEvent {
     pub location: Option<Location>,
 }
 
+/// Represents the semantic lifecycle state of an object/variable.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize, PartialEq, Eq)]
+pub enum ObjectState {
+    /// Newly constructed object/resource.
+    Created,
+    /// Variable is immutably borrowed.
+    Borrowed,
+    /// Variable is mutably borrowed.
+    MutBorrowed,
+    /// Variable has been transferred.
+    Transferred,
+    /// Variable has been destroyed/consumed.
+    Destroyed,
+    /// Variable has been shared as a global object.
+    Shared,
+    /// Variable has been wrapped inside another object.
+    Wrapped,
+}
+
 /// Pre-analyzed function semantics including resolved symbols, types, and data-flow transfers.
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub struct FunctionSemantic {
@@ -315,6 +226,10 @@ pub struct FunctionSemantic {
     pub has_capability_param: bool,
     pub has_tx_context_param: bool,
     pub has_signer_param: bool,
+    /// Object state tracking results
+    pub object_states: HashMap<String, ObjectState>,
+    /// Resolved variable aliases (alias_name -> original_name)
+    pub aliases: HashMap<String, String>,
 }
 
 impl FunctionSemantic {
@@ -326,6 +241,8 @@ impl FunctionSemantic {
         let mut local_types = HashMap::new();
         let mut resolved_calls = Vec::new();
         let mut transfers = Vec::new();
+        let mut object_states = HashMap::new();
+        let mut aliases = HashMap::new();
 
         let mut has_capability_param = false;
         let mut has_tx_context_param = false;
@@ -367,6 +284,8 @@ impl FunctionSemantic {
                 local_types: &mut local_types,
                 resolved_calls: &mut resolved_calls,
                 transfers: &mut transfers,
+                object_states: &mut object_states,
+                aliases: &mut aliases,
             };
             state.analyze_node(ast, &func.location);
         } else {
@@ -390,6 +309,8 @@ impl FunctionSemantic {
             has_capability_param,
             has_tx_context_param,
             has_signer_param,
+            object_states,
+            aliases,
         }
     }
 }
@@ -400,9 +321,19 @@ struct DataFlowState<'a> {
     local_types: &'a mut HashMap<String, String>,
     resolved_calls: &'a mut Vec<String>,
     transfers: &'a mut Vec<TransferEvent>,
+    object_states: &'a mut HashMap<String, ObjectState>,
+    aliases: &'a mut HashMap<String, String>,
 }
 
 impl<'a> DataFlowState<'a> {
+    fn resolve_alias(&self, name: &str) -> String {
+        let mut current = name.to_string();
+        while let Some(parent) = self.aliases.get(&current) {
+            current = parent.clone();
+        }
+        current
+    }
+
     fn analyze_node(&mut self, node: &AstNode, loc: &Location) {
         match node {
             AstNode::Block(statements) => {
@@ -429,15 +360,33 @@ impl<'a> DataFlowState<'a> {
                     "Unknown".to_string()
                 };
 
-                self.local_types.insert(name.clone(), resolved_type);
+                self.local_types.insert(name.clone(), resolved_type.clone());
 
                 if let Some(ref init) = initializer {
+                    if let AstNode::Identifier(ref init_name) = **init {
+                        let original = self.resolve_alias(init_name);
+                        self.aliases.insert(name.clone(), original);
+                    } else {
+                        if resolved_type != "Unknown"
+                            && resolved_type != "u64"
+                            && resolved_type != "bool"
+                            && resolved_type != "address"
+                        {
+                            self.object_states
+                                .insert(name.clone(), ObjectState::Created);
+                        }
+                    }
                     self.analyze_node(init, loc);
                 }
             }
             AstNode::Assign { target, value } => {
                 let val_type = self.infer_node_type(value);
                 self.local_types.insert(target.clone(), val_type);
+
+                if let AstNode::Identifier(ref init_name) = **value {
+                    let original = self.resolve_alias(init_name);
+                    self.aliases.insert(target.clone(), original);
+                }
                 self.analyze_node(value, loc);
             }
             AstNode::Call {
@@ -453,8 +402,8 @@ impl<'a> DataFlowState<'a> {
                 self.resolved_calls.push(fq_call.clone());
 
                 let is_transfer = fq_call == "sui::transfer::public_transfer"
-                    || fq_call == "sui::transfer::transfer"
-                    || fq_call == "sui::transfer::public_share_object"
+                    || fq_call == "sui::transfer::transfer";
+                let is_share = fq_call == "sui::transfer::public_share_object"
                     || fq_call == "sui::transfer::share_object";
 
                 if is_transfer && !arguments.is_empty() {
@@ -463,8 +412,11 @@ impl<'a> DataFlowState<'a> {
                         AstNode::Identifier(name) => name.clone(),
                         _ => "expression".to_string(),
                     };
-                    let asset_type = self.infer_node_type(asset_node);
+                    let original_name = self.resolve_alias(&asset_name);
+                    self.object_states
+                        .insert(original_name.clone(), ObjectState::Transferred);
 
+                    let asset_type = self.infer_node_type(asset_node);
                     let recipient = if arguments.len() > 1 {
                         match &arguments[1] {
                             AstNode::Identifier(name) => name.clone(),
@@ -476,11 +428,41 @@ impl<'a> DataFlowState<'a> {
                     };
 
                     self.transfers.push(TransferEvent {
-                        asset_name,
+                        asset_name: original_name,
                         asset_type,
                         recipient,
                         location: Some(loc.clone()),
                     });
+                } else if is_share && !arguments.is_empty() {
+                    let asset_node = &arguments[0];
+                    let asset_name = match asset_node {
+                        AstNode::Identifier(name) => name.clone(),
+                        _ => "expression".to_string(),
+                    };
+                    let original_name = self.resolve_alias(&asset_name);
+                    self.object_states
+                        .insert(original_name, ObjectState::Shared);
+                } else {
+                    // Regular call, inspect reference/mutable reference arguments
+                    for arg in arguments {
+                        if let AstNode::Expression(ref expr_str) = arg {
+                            if let Some(stripped) = expr_str.strip_prefix("&mut ") {
+                                let var_name = stripped.trim();
+                                let original = self.resolve_alias(var_name);
+                                self.object_states
+                                    .insert(original, ObjectState::MutBorrowed);
+                            } else if let Some(stripped) = expr_str.strip_prefix("&") {
+                                let var_name = stripped.trim();
+                                let original = self.resolve_alias(var_name);
+                                self.object_states.insert(original, ObjectState::Borrowed);
+                            }
+                        } else if let AstNode::Identifier(ref var_name) = arg {
+                            let original = self.resolve_alias(var_name);
+                            self.object_states
+                                .entry(original)
+                                .or_insert(ObjectState::Wrapped);
+                        }
+                    }
                 }
 
                 for arg in arguments {
@@ -546,5 +528,151 @@ impl<'a> DataFlowState<'a> {
             }
             _ => "Unknown".to_string(),
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use moveshield_core::models::{AstNode, Location, UseMember, UseStatement};
+    use std::path::PathBuf;
+
+    #[test]
+    fn test_resolve_type_path() {
+        let use_statements = vec![
+            UseStatement {
+                address: Some("sui".to_string()),
+                module: "transfer".to_string(),
+                members: vec![],
+            },
+            UseStatement {
+                address: Some("sui".to_string()),
+                module: "tx_context".to_string(),
+                members: vec![UseMember {
+                    name: "TxContext".to_string(),
+                    alias: Some("Ctx".to_string()),
+                }],
+            },
+        ];
+
+        // test fully qualified
+        assert_eq!(
+            resolve_type_path("0x2::coin::Coin", "my_module", "0x42", &use_statements),
+            "0x2::coin::Coin"
+        );
+
+        // test partially qualified via import
+        assert_eq!(
+            resolve_type_path(
+                "transfer::public_transfer",
+                "my_module",
+                "0x42",
+                &use_statements
+            ),
+            "sui::transfer::public_transfer"
+        );
+
+        // test alias member
+        assert_eq!(
+            resolve_type_path("Ctx", "my_module", "0x42", &use_statements),
+            "sui::tx_context::TxContext"
+        );
+
+        // test fallback to local module
+        assert_eq!(
+            resolve_type_path("MyStruct", "my_module", "0x42", &use_statements),
+            "0x42::my_module::MyStruct"
+        );
+
+        // test reference types
+        assert_eq!(
+            resolve_type_path("&mut Ctx", "my_module", "0x42", &use_statements),
+            "&mut sui::tx_context::TxContext"
+        );
+
+        // test generic types
+        assert_eq!(
+            resolve_type_path("Coin<Ctx>", "my_module", "0x42", &use_statements),
+            "0x42::my_module::Coin<sui::tx_context::TxContext>"
+        );
+    }
+
+    #[test]
+    fn test_analyze_function_semantic() {
+        let module = MoveModule {
+            name: "my_module".to_string(),
+            address: "0x42".to_string(),
+            functions: HashMap::new(),
+            use_statements: vec![UseStatement {
+                address: Some("sui".to_string()),
+                module: "transfer".to_string(),
+                members: vec![],
+            }],
+        };
+
+        // fun test_flow(cap: AdminCap, recipient: address) {
+        //     let mut x = cap;
+        //     transfer::public_transfer(x, recipient);
+        // }
+        let ast = AstNode::Block(vec![
+            AstNode::Let {
+                name: "x".to_string(),
+                is_mut: true,
+                type_annotation: None,
+                initializer: Some(Box::new(AstNode::Identifier("cap".to_string()))),
+            },
+            AstNode::Call {
+                function_name: "transfer::public_transfer".to_string(),
+                arguments: vec![
+                    AstNode::Identifier("x".to_string()),
+                    AstNode::Identifier("recipient".to_string()),
+                ],
+            },
+        ]);
+
+        let func = MoveFunction {
+            name: "test_flow".to_string(),
+            visibility: "public".to_string(),
+            location: Location {
+                file: PathBuf::from("test.move"),
+                start_line: 1,
+                start_column: 1,
+                end_line: 1,
+                end_column: 1,
+            },
+            complexity: 1,
+            calls: vec!["transfer::public_transfer".to_string()],
+            parameters: vec![
+                "cap: AdminCap".to_string(),
+                "recipient: address".to_string(),
+            ],
+            body_text: "".to_string(),
+            ast: Some(ast),
+        };
+
+        let semantic = FunctionSemantic::analyze(&func, &module);
+
+        assert_eq!(semantic.fq_name, "0x42::my_module::test_flow");
+        assert!(semantic.has_capability_param);
+        assert_eq!(
+            semantic.resolved_calls,
+            vec!["sui::transfer::public_transfer".to_string()]
+        );
+
+        // Assert alias and state tracking
+        assert_eq!(semantic.aliases.get("x").map(|s| s.as_str()), Some("cap"));
+        assert_eq!(
+            semantic.object_states.get("cap"),
+            Some(&ObjectState::Transferred)
+        );
+
+        // Assert data-flow correctly tracked asset type from 'cap' (parameter) to 'x' (local) to 'public_transfer' (sink)
+        assert_eq!(semantic.transfers.len(), 1);
+        assert_eq!(semantic.transfers[0].asset_name, "cap");
+        assert_eq!(
+            semantic.transfers[0].asset_type,
+            "0x42::my_module::AdminCap"
+        );
+        assert_eq!(semantic.transfers[0].recipient, "recipient");
     }
 }

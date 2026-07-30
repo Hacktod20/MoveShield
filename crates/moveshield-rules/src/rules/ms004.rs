@@ -65,23 +65,35 @@ impl Rule for MS004 {
                         continue;
                     }
 
+                    let sem = match store.get_function_semantic(
+                        &module.address,
+                        &module.name,
+                        &func.name,
+                    ) {
+                        Some(s) => s,
+                        None => continue,
+                    };
+
                     let mut mutable_shared_params = Vec::new();
                     let has_capability =
                         store.has_capability_param(&module.address, &module.name, &func.name);
 
-                    for param in &func.parameters {
-                        let is_mut = param.contains("&mut");
-                        let is_shared_target = param.contains("Pool")
-                            || param.contains("Store")
-                            || param.contains("State")
-                            || param.contains("Shared")
-                            || param.contains("Config")
-                            || param.contains("Registry")
-                            || param.contains("Object")
-                            || param.contains("Treasury");
+                    for (param_name, _param_raw) in &sem.parameters {
+                        if let Some(resolved_type) = sem.param_types.get(param_name) {
+                            let is_mut_borrow = resolved_type.starts_with("&mut ");
+                            let is_shared_target = resolved_type.contains("Pool")
+                                || resolved_type.contains("Store")
+                                || resolved_type.contains("State")
+                                || resolved_type.contains("Shared")
+                                || resolved_type.contains("Config")
+                                || resolved_type.contains("Registry")
+                                || resolved_type.contains("Object")
+                                || resolved_type.contains("Treasury");
 
-                        if is_mut && is_shared_target {
-                            mutable_shared_params.push(param.clone());
+                            if is_mut_borrow && is_shared_target {
+                                mutable_shared_params
+                                    .push(format!("{}: {}", param_name, resolved_type));
+                            }
                         }
                     }
 

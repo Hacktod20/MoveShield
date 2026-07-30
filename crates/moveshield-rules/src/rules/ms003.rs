@@ -5,6 +5,7 @@ use moveshield_config::Config;
 use moveshield_core::models::{
     Confidence, Evidence, EvidenceKind, Finding, RuleCategory, Severity,
 };
+use moveshield_ir::ObjectState;
 use moveshield_knowledge::KnowledgeStore;
 
 /// MS003: Capability Leakage.
@@ -67,9 +68,22 @@ impl Rule for MS003 {
                         func.visibility == "public" || func.visibility == "entry";
 
                     let transfers = store.get_transfers(&module.address, &module.name, &func.name);
-                    let leaks_cap = transfers
-                        .iter()
-                        .any(|tr| store.is_capability(&tr.asset_type));
+
+                    let mut leaks_cap = false;
+                    for tr in &transfers {
+                        if store.is_capability(&tr.asset_type) {
+                            if let Some(state) = store.get_variable_state(
+                                &module.address,
+                                &module.name,
+                                &func.name,
+                                &tr.asset_name,
+                            ) {
+                                if state == ObjectState::Transferred {
+                                    leaks_cap = true;
+                                }
+                            }
+                        }
+                    }
 
                     if has_cap_param && is_public_or_entry && leaks_cap {
                         let mut evidence = Vec::new();
