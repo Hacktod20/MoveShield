@@ -1,4 +1,7 @@
-//! MoveShield Core domain models, traits, identifiers, and common interfaces.
+//! MoveShield Core domain models, shared errors, and common traits.
+//!
+//! Serves as the foundational crate establishing the Core Data Model (CDM) and
+//! common domain interfaces used across the other modular analysis crates.
 
 pub mod models;
 pub mod traits;
