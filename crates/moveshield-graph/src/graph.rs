@@ -235,6 +235,8 @@ mod tests {
                 },
                 complexity: 1,
                 calls: Vec::new(),
+                parameters: Vec::new(),
+                body_text: String::new(),
             },
         );
 
@@ -258,6 +260,8 @@ mod tests {
                     "clean::get_base_fee".to_string(),
                     "complex::transfer".to_string(), // recursive!
                 ],
+                parameters: Vec::new(),
+                body_text: String::new(),
             },
         );
 

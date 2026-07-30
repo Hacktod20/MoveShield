@@ -5,3 +5,11 @@ edition = "2021"
 
 [dependencies]
 moveshield-core = { path = "../moveshield-core" }
+moveshield-compiler = { path = "../moveshield-compiler" }
+moveshield-config = { path = "../moveshield-config" }
+moveshield-ir = { path = "../moveshield-ir" }
+moveshield-graph = { path = "../moveshield-graph" }
+moveshield-knowledge = { path = "../moveshield-knowledge" }
+moveshield-rules = { path = "../moveshield-rules" }
+serde = { workspace = true }
+serde_json = { workspace = true }

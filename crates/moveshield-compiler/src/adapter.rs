@@ -303,11 +303,42 @@ fn parse_module_contents(
                     scan_idx += 1;
                 }
 
+                // Extract parameter strings from raw characters inside (...)
+                let mut params_start = None;
+                let mut params_end = None;
+                let mut depth = 0;
+                for idx in name_end..scan_idx {
+                    if chars[idx] == '(' {
+                        if depth == 0 {
+                            params_start = Some(idx + 1);
+                        }
+                        depth += 1;
+                    } else if chars[idx] == ')' {
+                        depth -= 1;
+                        if depth == 0 {
+                            params_end = Some(idx);
+                            break;
+                        }
+                    }
+                }
+
+                let mut parameters = Vec::new();
+                if let (Some(ps), Some(pe)) = (params_start, params_end) {
+                    let params_str: String = chars[ps..pe].iter().collect();
+                    for part in params_str.split(',') {
+                        let trimmed = part.trim();
+                        if !trimmed.is_empty() {
+                            parameters.push(trimmed.to_string());
+                        }
+                    }
+                }
+
                 if found_brace {
                     if let Some((block_start, block_end)) = find_matching_block(chars, scan_idx) {
                         let body_chars = &chars[block_start..block_end];
                         let complexity = calculate_complexity(body_chars);
                         let calls = extract_calls(body_chars, current_module);
+                        let body_text: String = body_chars.iter().collect();
 
                         functions.push(Function {
                             name: fun_name,
@@ -321,6 +352,8 @@ fn parse_module_contents(
                             },
                             complexity,
                             calls,
+                            parameters,
+                            body_text,
                         });
 
                         i = block_end + 1;
@@ -339,6 +372,8 @@ fn parse_module_contents(
                         },
                         complexity: 1,
                         calls: Vec::new(),
+                        parameters,
+                        body_text: String::new(),
                     });
                     i = scan_idx + 1;
                     continue;

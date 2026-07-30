@@ -1,0 +1,6 @@
+[package]
+name = "safe"
+version = "0.1.0"
+
+[addresses]
+safe = "0x44"

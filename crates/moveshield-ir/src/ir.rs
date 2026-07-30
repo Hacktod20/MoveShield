@@ -37,6 +37,10 @@ pub struct MoveFunction {
     pub complexity: usize,
     /// Function calls made by this function.
     pub calls: Vec<String>,
+    /// Parameters of the function.
+    pub parameters: Vec<String>,
+    /// The body text of the function.
+    pub body_text: String,
 }
 
 /// The main representation of MoveIR.
@@ -63,6 +67,8 @@ impl MoveIR {
                         location: function.location.clone(),
                         complexity: function.complexity,
                         calls: function.calls.clone(),
+                        parameters: function.parameters.clone(),
+                        body_text: function.body_text.clone(),
                     };
                     functions.insert(function.name.clone(), move_fn);
                 }
