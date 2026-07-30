@@ -1,8 +1,8 @@
 //! MoveShield Rule Engine interface.
 
+use moveshield_config::Config;
 use moveshield_core::models::{Finding, RuleCategory};
 use moveshield_knowledge::KnowledgeStore;
-use moveshield_config::Config;
 
 /// Base trait that every static analysis rule must implement.
 pub trait Rule {

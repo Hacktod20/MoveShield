@@ -82,6 +82,8 @@ impl MoveIR {
             modules,
         };
 
-        Self { project: move_project }
+        Self {
+            project: move_project,
+        }
     }
 }

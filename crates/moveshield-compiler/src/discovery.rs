@@ -24,7 +24,10 @@ pub struct ProjectDiscovery;
 
 impl ProjectDiscovery {
     /// Locates the Move.toml in the target directory and returns metadata.
-    pub fn discover(root: &Path) -> std::result::Result<(String, HashMap<String, String>, Vec<PathBuf>), String> {
+    #[allow(clippy::type_complexity)]
+    pub fn discover(
+        root: &Path,
+    ) -> std::result::Result<(String, HashMap<String, String>, Vec<PathBuf>), String> {
         let toml_path = root.join("Move.toml");
         if !toml_path.exists() {
             return Err(format!("Move.toml not found in {:?}", root));
@@ -50,7 +53,9 @@ impl ProjectDiscovery {
     }
 
     fn collect_move_files(dir: &Path, files: &mut Vec<PathBuf>) -> std::result::Result<(), String> {
-        for entry in fs::read_dir(dir).map_err(|e| format!("Failed to read directory {:?}: {}", dir, e))? {
+        for entry in
+            fs::read_dir(dir).map_err(|e| format!("Failed to read directory {:?}: {}", dir, e))?
+        {
             let entry = entry.map_err(|e| format!("Failed to read entry: {}", e))?;
             let path = entry.path();
             if path.is_dir() {

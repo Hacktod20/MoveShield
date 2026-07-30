@@ -5,6 +5,12 @@ use moveshield_core::models::Finding;
 /// Finding Engine that normalizes and orders findings deterministically.
 pub struct FindingEngine;
 
+impl Default for FindingEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl FindingEngine {
     /// Creates a new FindingEngine instance.
     pub fn new() -> Self {
@@ -27,7 +33,8 @@ impl FindingEngine {
 
         // Deterministically sort findings by rule_id, file path, line number, then column
         unique_findings.sort_by(|a, b| {
-            a.rule_id.cmp(&b.rule_id)
+            a.rule_id
+                .cmp(&b.rule_id)
                 .then_with(|| a.location.file.cmp(&b.location.file))
                 .then_with(|| a.location.start_line.cmp(&b.location.start_line))
                 .then_with(|| a.location.start_column.cmp(&b.location.start_column))

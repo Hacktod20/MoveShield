@@ -1,7 +1,7 @@
 //! Reporting Engine for Terminal summaries and standard-compliant SARIF export.
 
 use moveshield_core::models::{Finding, Project, Severity};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::Write;
 use std::path::Path;
@@ -97,6 +97,12 @@ pub struct SarifRegion {
 /// The main Report Engine.
 pub struct ReportEngine;
 
+impl Default for ReportEngine {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ReportEngine {
     /// Creates a new ReportEngine.
     pub fn new() -> Self {
@@ -106,18 +112,28 @@ impl ReportEngine {
     /// Generates a human-readable Terminal summary.
     pub fn generate_terminal(&self, project: &Project, findings: &[Finding], duration_ms: u128) {
         let total_modules: usize = project.packages.iter().map(|p| p.modules.len()).sum();
-        let total_functions: usize = project.packages.iter()
+        let total_functions: usize = project
+            .packages
+            .iter()
             .map(|p| p.modules.iter().map(|m| m.functions.len()).sum::<usize>())
             .sum();
 
-        println!("\n================================================================================");
-        println!("                         MoveShield Analysis Report                             ");
-        println!("================================================================================");
+        println!(
+            "\n================================================================================"
+        );
+        println!(
+            "                         MoveShield Analysis Report                             "
+        );
+        println!(
+            "================================================================================"
+        );
         println!("Project:          {}", project.name);
         println!("Total Modules:    {}", total_modules);
         println!("Total Functions:  {}", total_functions);
         println!("Scan Duration:    {} ms", duration_ms);
-        println!("--------------------------------------------------------------------------------");
+        println!(
+            "--------------------------------------------------------------------------------"
+        );
 
         if findings.is_empty() {
             println!("Status:           \x1b[32mPASSED (No findings detected)\x1b[0m");
@@ -149,7 +165,12 @@ impl ReportEngine {
                 };
 
                 println!("  {}. {} {}", idx + 1, sev_label, finding.rule_id);
-                println!("     Location:   {:?}:{}:{}", finding.location.file, finding.location.start_line, finding.location.start_column);
+                println!(
+                    "     Location:   {:?}:{}:{}",
+                    finding.location.file,
+                    finding.location.start_line,
+                    finding.location.start_column
+                );
                 println!("     Message:    {}", finding.message);
                 println!("     Fix:        {}", finding.suggested_fix);
                 if !finding.references.is_empty() {
@@ -158,11 +179,18 @@ impl ReportEngine {
                 println!();
             }
         }
-        println!("================================================================================");
+        println!(
+            "================================================================================"
+        );
     }
 
     /// Generates a SARIF 2.1.0 compliant report file.
-    pub fn generate_sarif(&self, _project: &Project, findings: &[Finding], out_path: &Path) -> std::io::Result<()> {
+    pub fn generate_sarif(
+        &self,
+        _project: &Project,
+        findings: &[Finding],
+        out_path: &Path,
+    ) -> std::io::Result<()> {
         let mut rules_map = std::collections::HashMap::new();
 
         // 1. Populate standard rules

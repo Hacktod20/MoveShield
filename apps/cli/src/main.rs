@@ -4,8 +4,8 @@ use clap::{Parser, Subcommand};
 use moveshield_compiler::{CompilerAdapter, DevelopmentParserAdapter};
 use moveshield_config::Config;
 use moveshield_findings::FindingEngine;
-use moveshield_ir::MoveIR;
 use moveshield_graph::CallGraph;
+use moveshield_ir::MoveIR;
 use moveshield_knowledge::KnowledgeStore;
 use moveshield_policy::PolicyEngine;
 use moveshield_report::ReportEngine;
@@ -15,7 +15,11 @@ use std::path::{Path, PathBuf};
 use std::time::Instant;
 
 #[derive(Parser)]
-#[command(name = "moveshield", version = "0.1.0", about = "MoveShield static analysis platform")]
+#[command(
+    name = "moveshield",
+    version = "0.1.0",
+    about = "MoveShield static analysis platform"
+)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
@@ -57,7 +61,10 @@ fn main() {
             let project = match adapter.compile(&path) {
                 Ok(proj) => proj,
                 Err(e) => {
-                    eprintln!("\x1b[31m[Analysis Failed] Project compilation/discovery error: {}\x1b[0m", e);
+                    eprintln!(
+                        "\x1b[31m[Analysis Failed] Project compilation/discovery error: {}\x1b[0m",
+                        e
+                    );
                     std::process::exit(1);
                 }
             };
@@ -94,8 +101,12 @@ fn main() {
 
             // SARIF report (saved to ./moveshield.sarif)
             let sarif_path = Path::new("moveshield.sarif");
-            if let Err(e) = report_engine.generate_sarif(&project, &processed_findings, sarif_path) {
-                eprintln!("\x1b[31m[Error] Failed to generate SARIF report: {}\x1b[0m", e);
+            if let Err(e) = report_engine.generate_sarif(&project, &processed_findings, sarif_path)
+            {
+                eprintln!(
+                    "\x1b[31m[Error] Failed to generate SARIF report: {}\x1b[0m",
+                    e
+                );
                 std::process::exit(1);
             } else {
                 println!("SARIF report successfully saved to {:?}", sarif_path);
