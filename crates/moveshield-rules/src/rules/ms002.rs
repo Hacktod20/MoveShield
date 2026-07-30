@@ -5,6 +5,7 @@ use moveshield_config::Config;
 use moveshield_core::models::{
     Confidence, Evidence, EvidenceKind, Finding, RuleCategory, Severity,
 };
+use moveshield_ir::ObjectState;
 use moveshield_knowledge::KnowledgeStore;
 
 /// MS002: Public Transfer Detection.
@@ -70,13 +71,15 @@ impl Rule for MS002 {
                     let resolved_calls =
                         store.get_resolved_calls(&module.address, &module.name, &func.name);
 
-                    for call in resolved_calls {
+                    for call in &resolved_calls {
                         if call == "sui::transfer::public_transfer"
                             || call == "sui::transfer::public_share_object"
                         {
-                            matched_calls.push(call);
+                            matched_calls.push(call.clone());
                         }
                     }
+
+                    let transfers = store.get_transfers(&module.address, &module.name, &func.name);
 
                     if !matched_calls.is_empty() {
                         let mut evidence = Vec::new();
@@ -91,6 +94,29 @@ impl Rule for MS002 {
                                 line: Some(func.location.start_line),
                                 column: Some(func.location.start_column),
                             });
+                        }
+
+                        // Use semantic state queries to add extra contextual evidence about what is being transferred
+                        for tr in &transfers {
+                            if let Some(state) = store.get_variable_state(
+                                &module.address,
+                                &module.name,
+                                &func.name,
+                                &tr.asset_name,
+                            ) {
+                                if state == ObjectState::Transferred {
+                                    evidence.push(Evidence {
+                                        kind: EvidenceKind::MatchedObject,
+                                        message: format!(
+                                            "Semantic tracker confirmed variable '{}' (of type '{}') reaches state Transferred.",
+                                            tr.asset_name, tr.asset_type
+                                        ),
+                                        snippet: Some(func.body_text.clone()),
+                                        line: Some(func.location.start_line),
+                                        column: Some(func.location.start_column),
+                                    });
+                                }
+                            }
                         }
 
                         findings.push(Finding {
