@@ -51,8 +51,8 @@ priority before production or security-critical use.
   cloud, and enterprise features are not implemented.
 - GitHub release automation is configured, but a release still requires pushing
   a version tag matching `moveshield-cli` after the workflow has been reviewed.
-  The repository currently has no declared open-source license; choose one
-  before publishing downloadable binaries for third-party use.
+- The project is dual-licensed MIT OR Apache-2.0; each CLI archive includes
+  both license texts.
 - `doctor` checks local Rust tools and reports whether Sui is installed; it does
   not install or configure toolchains.
 
