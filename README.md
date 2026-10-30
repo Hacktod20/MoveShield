@@ -1,6 +1,8 @@
 # MoveShield Static Analysis Platform
 
-MoveShield is a production-quality, modular static analysis and engineering intelligence platform for the Move programming language and Sui blockchain ecosystem. Designed from the ground up under `RFC-0020`, MoveShield offers a unidirectional compiler-to-reporting pipeline that analyzes smart contracts, constructs immutability call graphs, extracts structural metrics, and reports architectural or security findings.
+MoveShield is a modular static-analysis prototype for the Move programming language and Sui blockchain ecosystem. It demonstrates a compiler-adapter-to-reporting pipeline that analyzes Move source files, builds a call graph, and reports code-quality and security-pattern findings.
+
+> **Important limitation:** MoveShield currently uses a heuristic development parser, not the official Sui Move compiler. It does not type-check packages, and its findings may be incomplete or incorrect. A clean scan is not evidence that a package is secure. Official compiler-AST integration remains future work.
 
 ---
 
@@ -10,13 +12,13 @@ MoveShield is a production-quality, modular static analysis and engineering inte
 - **Robust Discovery & Adaptation:** Auto-discovers Move projects, resolves named addresses, and leverages a lightweight **Development Parser Fallback** when blockchain toolchains are missing.
 - **Advanced Graph Engine:** Assembles a fully resolved, immutable **Call Graph** with recursion and unused function detection.
 - **Configurable Policies:** Implements extensible analysis rules, including **MS001 Cyclomatic Complexity**, governed by custom `moveshield.toml` settings.
-- **Standardized Reports:** Prints detailed terminal results and generates industry-compliant **SARIF 2.1.0** reports (`./moveshield.sarif`) out-of-the-box.
+- **Reports:** Prints terminal results and exports JSON, Markdown, HTML, and SARIF 2.1.0 (`./moveshield.sarif` by default).
 
 ---
 
 ## 📦 Workspace Overview
 
-The platform is split into 14 highly cohesive Cargo crates:
+The workspace contains 15 supporting library crates:
 
 | Crate Name | Primary Responsibility |
 | :--- | :--- |
@@ -26,13 +28,13 @@ The platform is split into 14 highly cohesive Cargo crates:
 | [`moveshield-graph`](crates/moveshield-graph) | Immutable Call Graph construction, call site resolution, and cycles traversal. |
 | [`moveshield-knowledge`](crates/moveshield-knowledge) | Engineering knowledge store housing clean, factual analysis stats. |
 | [`moveshield-rules`](crates/moveshield-rules) | The static analysis scheduler and modular rules engine (e.g., MS001). |
-| [`moveshield-policy`](crates/moveshield-policy) | Severity overrides, filters, and organizational suppression profiles. |
+| [`moveshield-policy`](crates/moveshield-policy) | Policy pipeline entry point; advanced filters and suppressions remain future work. |
 | [`moveshield-findings`](crates/moveshield-findings) | Deduplicates and deterministically sorts platform findings. |
 | [`moveshield-report`](crates/moveshield-report) | Outputs detailed terminal tables and exports standardized `moveshield.sarif`. |
 | [`moveshield-config`](crates/moveshield-config) | Handles `moveshield.toml` loading, default configuration, and validation. |
-| [`moveshield-sdk`](crates/moveshield-sdk) | High-level developer plugin boundaries and SDK interface definitions. |
+| [`moveshield-sdk`](crates/moveshield-sdk) | SDK skeleton for future programmatic integrations. |
 | [`moveshield-testing`](crates/moveshield-testing) | Shared testing mocks, harness fixtures, and regression pipelines. |
-| [`moveshield-cache`](crates/moveshield-cache) | Platform caching mechanics to speed up consecutive local and CI scan executions. |
+| [`moveshield-cache`](crates/moveshield-cache) | Cache skeleton; persistent incremental caching is not yet wired into the CLI. |
 | [`moveshield-utils`](crates/moveshield-utils) | Standardized, non-business internal utility helpers. |
 
 ---
@@ -46,11 +48,11 @@ Verify you have the stable Rust compiler toolchain set up:
 cargo build --release
 ```
 
-### 2. Run the tests
-Execute the entire workspace unit and integration test suite:
+### 2. Check your environment and run the tests
 
 ```bash
-cargo test
+cargo run --package moveshield-cli -- doctor
+cargo test --workspace
 ```
 
 ### 3. Analyze the Example Move Project
@@ -60,7 +62,25 @@ Run the compiled CLI binary against the packaged demo:
 cargo run --package moveshield-cli -- analyze ./example
 ```
 
-This will run project discovery, compile modules under `example/sources`, evaluate the cyclomatic complexity of functions, and output a detailed warning about `example::complex::transfer` because its complexity of **12** exceeds the configured limit of **10**.
+This scans modules under `example/sources` and reports findings. The example is expected to exit with code `2` because findings were detected; this is not a build or runtime failure. The development parser does not compile or type-check Move code.
+
+### CLI commands
+
+```bash
+cargo run --package moveshield-cli -- rules
+cargo run --package moveshield-cli -- explain MS001
+cargo run --package moveshield-cli -- config validate ./example
+cargo run --package moveshield-cli -- init ./some-move-project
+
+# JSON is written to stdout unless --output is provided.
+cargo run --package moveshield-cli -- analyze ./example --format json
+cargo run --package moveshield-cli -- analyze ./example --format sarif --output ./moveshield.sarif
+cargo run --package moveshield-cli -- analyze ./example --format markdown --output ./report.md
+cargo run --package moveshield-cli -- analyze ./example --format html --output ./report.html
+cargo run --package moveshield-cli -- analyze ./example --format terminal
+```
+
+By default, `analyze` prints the terminal report and writes `moveshield.sarif` to the current directory. Findings return exit code `2`, configuration errors return `3`, and other failures return `1`.
 
 ---
 

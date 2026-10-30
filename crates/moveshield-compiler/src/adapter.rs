@@ -55,20 +55,59 @@ impl CompilerAdapter for DevelopmentParserAdapter {
 
 /// Strips all single-line and multi-line comments from the Move source code.
 fn strip_comments(src: &str) -> String {
-    let mut result = String::new();
     let chars: Vec<char> = src.chars().collect();
+    let mut result = String::with_capacity(src.len());
     let mut i = 0;
+    let mut block_depth = 0;
+    let mut in_string = false;
+    let mut escaped = false;
+
     while i < chars.len() {
-        if i + 1 < chars.len() && chars[i] == '/' && chars[i + 1] == '/' {
+        if block_depth > 0 {
+            if i + 1 < chars.len() && chars[i] == '/' && chars[i + 1] == '*' {
+                block_depth += 1;
+                result.push(' ');
+                result.push(' ');
+                i += 2;
+            } else if i + 1 < chars.len() && chars[i] == '*' && chars[i + 1] == '/' {
+                block_depth -= 1;
+                result.push(' ');
+                result.push(' ');
+                i += 2;
+            } else {
+                let c = chars[i];
+                result.push(if c == '\n' { '\n' } else { ' ' });
+                i += 1;
+            }
+        } else if in_string {
+            let c = chars[i];
+            result.push(c);
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+            i += 1;
+        } else if chars[i] == '"' {
+            in_string = true;
+            result.push(chars[i]);
+            i += 1;
+        } else if i + 1 < chars.len() && chars[i] == '/' && chars[i + 1] == '/' {
             i += 2;
             while i < chars.len() && chars[i] != '\n' {
+                result.push(' ');
+                i += 1;
+            }
+            if i < chars.len() {
+                result.push('\n');
                 i += 1;
             }
         } else if i + 1 < chars.len() && chars[i] == '/' && chars[i + 1] == '*' {
-            i += 2;
-            while i + 1 < chars.len() && !(chars[i] == '*' && chars[i + 1] == '/') {
-                i += 1;
-            }
+            block_depth = 1;
+            result.push(' ');
+            result.push(' ');
             i += 2;
         } else {
             result.push(chars[i]);
@@ -105,15 +144,28 @@ fn is_word_at(src: &[char], idx: usize, word: &str) -> bool {
 
 /// Finds matching curly braces `{` and `}` starting from start_idx.
 fn find_matching_block(chars: &[char], start_idx: usize) -> Option<(usize, usize)> {
-    let mut depth = 0;
+    let mut depth = 0usize;
     let mut first_brace = None;
+    let mut in_string = false;
+    let mut escaped = false;
+
     for (idx, &c) in chars.iter().enumerate().skip(start_idx) {
-        if c == '{' {
+        if in_string {
+            if escaped {
+                escaped = false;
+            } else if c == '\\' {
+                escaped = true;
+            } else if c == '"' {
+                in_string = false;
+            }
+        } else if c == '"' {
+            in_string = true;
+        } else if c == '{' {
             if depth == 0 {
                 first_brace = Some(idx);
             }
             depth += 1;
-        } else if c == '}' {
+        } else if c == '}' && depth > 0 {
             depth -= 1;
             if depth == 0 {
                 if let Some(start) = first_brace {
@@ -977,6 +1029,28 @@ mod tests {
         assert!(!stripped.contains("comment"));
         assert!(stripped.contains("module foo"));
         assert!(stripped.contains("fun bar"));
+    }
+
+    #[test]
+    fn comments_inside_strings_and_nested_comments_are_preserved_correctly() {
+        let src = r#"module foo { /* outer /* nested */ done */ fun bar() { let s = "/* not a comment */ // still text"; } }"#;
+        let stripped = strip_comments(src);
+        assert!(stripped.contains(r#""/* not a comment */ // still text""#));
+        assert!(!stripped.contains("nested"));
+
+        let chars: Vec<char> = stripped.chars().collect();
+        let module_block = find_matching_block(&chars, 0).unwrap();
+        assert_eq!(chars[module_block.1], '}');
+    }
+
+    #[test]
+    fn matching_blocks_ignore_braces_in_strings() {
+        let chars: Vec<char> = r#"{ let s = "}"; { } }"#.chars().collect();
+        let (body_start, body_end) = find_matching_block(&chars, 0).unwrap();
+        assert_eq!(
+            chars[body_start..body_end].iter().collect::<String>(),
+            r#" let s = "}"; { } "#
+        );
     }
 
     #[test]

@@ -22,6 +22,11 @@ enabled = true
 # If a function exceeds this threshold, a Medium severity finding is generated.
 # Default threshold is 10.
 max_complexity = 10
+severity_override = "medium"
+confidence_override = "high"
+
+[rules.MS002]
+enabled = false
 ```
 
 ### 1.2 Configuration Fields Specification
@@ -31,6 +36,11 @@ max_complexity = 10
 | `version` | Integer | `1` | Schema version of the configuration file. |
 | `rules.MS001.enabled` | Boolean | `true` | When true, the MS001 Cyclomatic Complexity check is run. |
 | `rules.MS001.max_complexity` | Integer | `10` | The exclusive maximum allowable cyclomatic complexity score. |
+| `rules.MS001.severity_override` | String | Rule default | Optional `critical`, `high`, `medium`, `low`, or `informational` override. |
+| `rules.MS001.confidence_override` | String | Rule default | Optional `high`, `medium`, or `low` override. |
+| `rules.MS002`–`rules.MS015.enabled` | Boolean | `true` | Enable or disable an individual registered rule. |
+| `rules.MS002`–`rules.MS015.severity_override` | String | Rule default | Optional supported severity override. |
+| `rules.MS002`–`rules.MS015.confidence_override` | String | Rule default | Optional supported confidence override. |
 
 ---
 
@@ -47,11 +57,11 @@ Before compiling MoveShield, verify you have the following installed:
 If you do not have Rust installed, set it up via `rustup`:
 
 ```bash
-# Download and install rustup
+# Download and install rustup (Linux/macOS)
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 
 # Configure your shell
-source $HOME/.cargo/env
+. "$HOME/.cargo/env"
 
 # Verify installation
 rustc --version
@@ -62,8 +72,8 @@ cargo --version
 Clone the repository recursively:
 
 ```bash
-git clone https://github.com/user/moveshield.git
-cd moveshield
+git clone https://github.com/Hacktod20/MoveShield.git
+cd MoveShield
 ```
 
 ### 2.4 Building the Workspace
@@ -87,9 +97,15 @@ MoveShield includes a dedicated example Move package located under `example/`.
 You can execute the MoveShield CLI directly against the example directory:
 
 ```bash
-# Run the scanner against the example project
+# Run the scanner against the example project (findings return exit code 2)
 cargo run --package moveshield-cli -- analyze ./example
 ```
+
+The default `analyze` mode prints a terminal report and writes `moveshield.sarif` in the current working directory. Use `--format json`, `--format markdown`, or `--format html` for those formats; `--output PATH` writes them to a file. Use `--format sarif --output PATH` to select a SARIF path, or `--format terminal` to skip report-file generation. Exit code `2` means findings were detected, not that the scan crashed.
+
+MoveShield currently uses a heuristic development parser. It does not type-check Move packages or consume the official Sui compiler AST; findings are not a security guarantee.
+
+Other available commands include `rules`, `explain MS001`, `init [PROJECT_DIR]`, `config validate [FILE_OR_PROJECT_DIR]`, `config show [FILE_OR_PROJECT_DIR]`, and `doctor`.
 
 ### 3.2 Example Modules & Behaviors Demonstrated
 
