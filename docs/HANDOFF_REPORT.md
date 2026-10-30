@@ -20,6 +20,8 @@ branch, test-count, and feature-status information.
   on Linux, macOS, and Windows. Its first hosted run requires a push.
 - A tag-triggered GitHub Release workflow builds CLI archives for Linux x86_64,
   macOS x86_64/Apple Silicon, and Windows x86_64 and publishes SHA-256 checksums.
+- Dispatching the release workflow manually runs the multi-platform build
+  without publishing; publishing is restricted to matching version tags.
 
 ## Important limitations
 
