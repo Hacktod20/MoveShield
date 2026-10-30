@@ -41,6 +41,16 @@ The workspace contains 15 supporting library crates:
 
 ## ⚡ Quick Start
 
+### Download a CLI release
+
+Prebuilt CLI archives are published for Linux x86_64, macOS x86_64, macOS
+Apple Silicon, and Windows x86_64 on the
+[GitHub Releases page](https://github.com/Hacktod20/MoveShield/releases).
+Download the archive matching your system and verify it against `SHA256SUMS`
+before extracting it. Each archive contains the `moveshield` executable
+(`moveshield.exe` on Windows). Releases are created from version tags such as
+`v0.1.0`, and the tag must match the CLI package version.
+
 ### 1. Build the platform
 Verify you have the stable Rust compiler toolchain set up:
 

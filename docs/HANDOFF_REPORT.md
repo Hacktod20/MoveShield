@@ -18,6 +18,8 @@ branch, test-count, and feature-status information.
   each rule against real-world contracts.
 - A GitHub Actions workflow runs formatting, Clippy, tests, and release builds
   on Linux, macOS, and Windows. Its first hosted run requires a push.
+- A tag-triggered GitHub Release workflow builds CLI archives for Linux x86_64,
+  macOS x86_64/Apple Silicon, and Windows x86_64 and publishes SHA-256 checksums.
 
 ## Important limitations
 
@@ -47,6 +49,10 @@ priority before production or security-critical use.
   incomplete or skeletal; they are not all wired into the CLI.
 - Plugin loading, graph visualization, GitHub Action integration, IDE support,
   cloud, and enterprise features are not implemented.
+- GitHub release automation is configured, but a release still requires pushing
+  a version tag matching `moveshield-cli` after the workflow has been reviewed.
+  The repository currently has no declared open-source license; choose one
+  before publishing downloadable binaries for third-party use.
 - `doctor` checks local Rust tools and reports whether Sui is installed; it does
   not install or configure toolchains.
 
