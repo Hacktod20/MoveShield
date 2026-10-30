@@ -20,6 +20,8 @@ branch, test-count, and feature-status information.
   on Linux, macOS, and Windows. Its first hosted run requires a push.
 - A tag-triggered GitHub Release workflow builds CLI archives for Linux x86_64,
   macOS x86_64/Apple Silicon, and Windows x86_64 and publishes SHA-256 checksums.
+- Dispatching the release workflow manually runs the multi-platform build
+  without publishing; publishing is restricted to matching version tags.
 
 ## Important limitations
 
@@ -51,8 +53,8 @@ priority before production or security-critical use.
   cloud, and enterprise features are not implemented.
 - GitHub release automation is configured, but a release still requires pushing
   a version tag matching `moveshield-cli` after the workflow has been reviewed.
-  The repository currently has no declared open-source license; choose one
-  before publishing downloadable binaries for third-party use.
+- The project is dual-licensed MIT OR Apache-2.0; each CLI archive includes
+  both license texts.
 - `doctor` checks local Rust tools and reports whether Sui is installed; it does
   not install or configure toolchains.
 

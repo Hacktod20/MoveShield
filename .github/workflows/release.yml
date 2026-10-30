@@ -4,6 +4,7 @@ on:
   push:
     tags:
       - "v*"
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -12,17 +13,25 @@ jobs:
   validate:
     name: Validate release tag
     runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.version.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - name: Match tag to CLI version
+        id: version
         shell: bash
         run: |
           version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "moveshield-cli") | .version')"
-          if [[ "$GITHUB_REF_NAME" != "v$version" ]]; then
-            echo "Release tag $GITHUB_REF_NAME does not match moveshield-cli version v$version" >&2
+          tag="v$version"
+          if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF_NAME" != "$tag" ]]; then
+            echo "Release tag $GITHUB_REF_NAME does not match moveshield-cli version $tag" >&2
             exit 1
           fi
+          if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
+            tag="$GITHUB_REF_NAME"
+          fi
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
 
   build:
     name: Build ${{ matrix.target }}
@@ -52,6 +61,7 @@ jobs:
         shell: bash
         env:
           TARGET: ${{ matrix.target }}
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
         run: |
           mkdir package
           if [[ "$RUNNER_OS" == "Windows" ]]; then
@@ -59,17 +69,19 @@ jobs:
           else
             cp "target/$TARGET/release/moveshield" package/
           fi
-          archive="moveshield-${GITHUB_REF_NAME}-${TARGET}.tar.gz"
+          cp LICENSE LICENSE-MIT LICENSE-APACHE README.md package/
+          archive="moveshield-${RELEASE_TAG}-${TARGET}.tar.gz"
           tar -czf "$archive" -C package .
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}
-          path: moveshield-${{ github.ref_name }}-${{ matrix.target }}.tar.gz
+          path: moveshield-${{ needs.validate.outputs.tag }}-${{ matrix.target }}.tar.gz
           if-no-files-found: error
           retention-days: 1
 
   publish:
     name: Publish GitHub Release
+    if: github.event_name == 'push'
     needs: build
     runs-on: ubuntu-latest
     permissions:
