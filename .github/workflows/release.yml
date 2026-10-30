@@ -59,6 +59,7 @@ jobs:
           else
             cp "target/$TARGET/release/moveshield" package/
           fi
+          cp LICENSE LICENSE-MIT LICENSE-APACHE README.md package/
           archive="moveshield-${GITHUB_REF_NAME}-${TARGET}.tar.gz"
           tar -czf "$archive" -C package .
       - uses: actions/upload-artifact@v4

@@ -2,6 +2,9 @@
 
 MoveShield is a modular static-analysis prototype for the Move programming language and Sui blockchain ecosystem. It demonstrates a compiler-adapter-to-reporting pipeline that analyzes Move source files, builds a call graph, and reports code-quality and security-pattern findings.
 
+MoveShield is available under either the [MIT License](LICENSE-MIT) or
+[Apache License 2.0](LICENSE-APACHE), at your option.
+
 > **Important limitation:** MoveShield currently uses a heuristic development parser, not the official Sui Move compiler. It does not type-check packages, and its findings may be incomplete or incorrect. A clean scan is not evidence that a package is secure. Official compiler-AST integration remains future work.
 
 ---
@@ -48,8 +51,9 @@ Apple Silicon, and Windows x86_64 on the
 [GitHub Releases page](https://github.com/Hacktod20/MoveShield/releases).
 Download the archive matching your system and verify it against `SHA256SUMS`
 before extracting it. Each archive contains the `moveshield` executable
-(`moveshield.exe` on Windows). Releases are created from version tags such as
-`v0.1.0`, and the tag must match the CLI package version.
+(`moveshield.exe` on Windows), README, and license texts. Releases are created
+from version tags such as `v0.1.0`, and the tag must match the CLI package
+version.
 
 ### 1. Build the platform
 Verify you have the stable Rust compiler toolchain set up:
