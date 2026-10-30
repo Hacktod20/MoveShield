@@ -39,16 +39,28 @@ pub trait Rule {
 
 /// Resolves severity of a finding, respecting user configuration overrides.
 pub fn resolve_severity(rule_id: &str, default_sev: Severity, config: &Config) -> Severity {
-    if let Some(rule_cfg) = config.rules.other_rules.get(rule_id) {
-        if let Some(ref sev_str) = rule_cfg.severity_override {
-            match sev_str.to_lowercase().as_str() {
-                "critical" => return Severity::Critical,
-                "high" => return Severity::High,
-                "medium" => return Severity::Medium,
-                "low" => return Severity::Low,
-                "informational" | "info" => return Severity::Informational,
-                _ => {}
-            }
+    let override_value = if rule_id == "MS001" {
+        config
+            .rules
+            .ms001
+            .as_ref()
+            .and_then(|rule_cfg| rule_cfg.severity_override.as_ref())
+    } else {
+        config
+            .rules
+            .other_rules
+            .get(rule_id)
+            .and_then(|rule_cfg| rule_cfg.severity_override.as_ref())
+    };
+
+    if let Some(sev_str) = override_value {
+        match sev_str.to_lowercase().as_str() {
+            "critical" => return Severity::Critical,
+            "high" => return Severity::High,
+            "medium" => return Severity::Medium,
+            "low" => return Severity::Low,
+            "informational" | "info" => return Severity::Informational,
+            _ => {}
         }
     }
     default_sev
@@ -56,14 +68,26 @@ pub fn resolve_severity(rule_id: &str, default_sev: Severity, config: &Config) -
 
 /// Resolves confidence of a finding, respecting user configuration overrides.
 pub fn resolve_confidence(rule_id: &str, default_conf: Confidence, config: &Config) -> Confidence {
-    if let Some(rule_cfg) = config.rules.other_rules.get(rule_id) {
-        if let Some(ref conf_str) = rule_cfg.confidence_override {
-            match conf_str.to_lowercase().as_str() {
-                "high" => return Confidence::High,
-                "medium" => return Confidence::Medium,
-                "low" => return Confidence::Low,
-                _ => {}
-            }
+    let override_value = if rule_id == "MS001" {
+        config
+            .rules
+            .ms001
+            .as_ref()
+            .and_then(|rule_cfg| rule_cfg.confidence_override.as_ref())
+    } else {
+        config
+            .rules
+            .other_rules
+            .get(rule_id)
+            .and_then(|rule_cfg| rule_cfg.confidence_override.as_ref())
+    };
+
+    if let Some(conf_str) = override_value {
+        match conf_str.to_lowercase().as_str() {
+            "high" => return Confidence::High,
+            "medium" => return Confidence::Medium,
+            "low" => return Confidence::Low,
+            _ => {}
         }
     }
     default_conf
@@ -122,4 +146,26 @@ pub fn all_rules() -> Vec<Box<dyn Rule>> {
         Box::new(MS014),
         Box::new(MS015),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn resolves_ms001_severity_and_confidence_overrides() {
+        let mut config = Config::default_config();
+        let ms001_config = config.rules.ms001.as_mut().unwrap();
+        ms001_config.severity_override = Some("high".to_string());
+        ms001_config.confidence_override = Some("medium".to_string());
+
+        assert_eq!(
+            resolve_severity("MS001", Severity::Low, &config),
+            Severity::High
+        );
+        assert_eq!(
+            resolve_confidence("MS001", Confidence::Low, &config),
+            Confidence::Medium
+        );
+    }
 }

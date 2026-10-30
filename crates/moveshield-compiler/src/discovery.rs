@@ -48,6 +48,7 @@ impl ProjectDiscovery {
         if sources_dir.exists() && sources_dir.is_dir() {
             Self::collect_move_files(&sources_dir, &mut source_files)?;
         }
+        source_files.sort();
 
         Ok((package_name, addresses, source_files))
     }
