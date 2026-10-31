@@ -1,0 +1,4 @@
+[package]
+name = "multiple_unsupported"
+version = "0.0.1"
+edition = "legacy"
