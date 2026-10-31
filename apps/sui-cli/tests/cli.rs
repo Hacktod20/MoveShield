@@ -25,6 +25,40 @@ fn analyze_type_checks_with_official_compiler_and_emits_machine_readable_report(
 }
 
 #[test]
+fn analyze_does_not_mutate_manifest_or_create_move_lock() {
+    let package =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/no_workspace_mutation");
+    let manifest_path = package.join("Move.toml");
+    let lock_path = package.join("Move.lock");
+    let manifest_before = fs::read(&manifest_path).expect("failed to read fixture manifest");
+    assert!(
+        !lock_path.exists(),
+        "fixture unexpectedly contains Move.lock"
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+        .args(["analyze", package.to_str().unwrap(), "--format", "json"])
+        .output()
+        .expect("failed to run MoveShield Sui CLI");
+
+    assert_eq!(
+        output.status.code(),
+        Some(0),
+        "{}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(
+        !output.stdout.is_empty(),
+        "successful JSON report was empty"
+    );
+    assert_eq!(
+        fs::read(&manifest_path).expect("failed to reread fixture manifest"),
+        manifest_before
+    );
+    assert!(!lock_path.exists(), "analysis created Move.lock");
+}
+
+#[test]
 fn unsupported_module_members_fail_with_exact_locations_and_no_json() {
     let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let cases = [
