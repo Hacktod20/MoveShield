@@ -30,3 +30,17 @@ jobs:
         run: cargo test --workspace
       - name: Build release binaries
         run: cargo build --workspace --release
+
+  sui-compiler:
+    name: Sui package compiler / stable
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - name: Check Sui CLI formatting
+        run: cargo fmt --manifest-path apps/sui-cli/Cargo.toml -- --check
+      - name: Run Sui CLI Clippy
+        run: cargo clippy --manifest-path apps/sui-cli/Cargo.toml --locked --all-targets -- -D warnings
+      - name: Test Sui compiler CLI
+        run: cargo test --manifest-path apps/sui-cli/Cargo.toml --locked

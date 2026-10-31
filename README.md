@@ -5,7 +5,7 @@ MoveShield is a modular static-analysis prototype for the Move programming langu
 MoveShield is available under either the [MIT License](LICENSE-MIT) or
 [Apache License 2.0](LICENSE-APACHE), at your option.
 
-> **Important limitation:** MoveShield currently uses a heuristic development parser, not the official Sui Move compiler. It does not type-check packages, and its findings may be incomplete or incorrect. A clean scan is not evidence that a package is secure. Official compiler-AST integration remains future work.
+> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.0 binary predates this backend.
 
 ---
 
@@ -26,7 +26,7 @@ The workspace contains 15 supporting library crates:
 | Crate Name | Primary Responsibility |
 | :--- | :--- |
 | [`moveshield-core`](crates/moveshield-core) | Canonical Core Data Model (CDM), traits, location info, and standard errors. |
-| [`moveshield-compiler`](crates/moveshield-compiler) | Project discovery, Move.toml metadata, and the Development Parser compiler adapter. |
+| [`moveshield-compiler`](crates/moveshield-compiler) | Project discovery, Move.toml metadata, and the development parser adapter. |
 | [`moveshield-ir`](crates/moveshield-ir) | Decoupled semantic intermediate representation for static analysis lookup trees. |
 | [`moveshield-graph`](crates/moveshield-graph) | Immutable Call Graph construction, call site resolution, and cycles traversal. |
 | [`moveshield-knowledge`](crates/moveshield-knowledge) | Engineering knowledge store housing clean, factual analysis stats. |
@@ -92,9 +92,21 @@ cargo run --package moveshield-cli -- analyze ./example --format sarif --output 
 cargo run --package moveshield-cli -- analyze ./example --format markdown --output ./report.md
 cargo run --package moveshield-cli -- analyze ./example --format html --output ./report.html
 cargo run --package moveshield-cli -- analyze ./example --format terminal
+
+# Run the separately built official Sui compiler-backed CLI.
+cargo run --manifest-path apps/sui-cli/Cargo.toml -- analyze ./example --format json
 ```
 
 By default, `analyze` prints the terminal report and writes `moveshield.sarif` to the current directory. Findings return exit code `2`, configuration errors return `3`, and other failures return `1`.
+
+The separate Sui CLI pulls the official Sui package tooling and Move compiler
+from a pinned MystenLabs/Sui repository revision. This avoids making ordinary
+MoveShield builds download the large Sui compiler workspace. It resolves
+package dependencies, runs the compiler through its typing pass, and derives
+root-package declarations, call references, complexity, and source locations
+from compiler AST data. It does not run bytecode verification or the complete
+Sui build pipeline, and MoveShield does not model every AST construct. The
+published v0.1.0 binary remains unchanged and does not include this backend.
 
 ---
 

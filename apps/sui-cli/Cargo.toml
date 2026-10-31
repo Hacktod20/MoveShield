@@ -1,0 +1,32 @@
+[workspace]
+resolver = "2"
+
+[package]
+name = "moveshield-sui-cli"
+version = "0.1.0"
+license = "MIT OR Apache-2.0"
+edition = "2021"
+
+[[bin]]
+name = "moveshield-sui"
+path = "src/main.rs"
+
+[dependencies]
+move-compiler = { git = "https://github.com/MystenLabs/sui.git", rev = "79479aed266b8d2318ed91056aaf8f8a95f01ba5" }
+move-ir-types = { git = "https://github.com/MystenLabs/sui.git", rev = "79479aed266b8d2318ed91056aaf8f8a95f01ba5" }
+move-package = { git = "https://github.com/MystenLabs/sui.git", rev = "79479aed266b8d2318ed91056aaf8f8a95f01ba5" }
+move-package-compilation = { git = "https://github.com/MystenLabs/sui.git", rev = "79479aed266b8d2318ed91056aaf8f8a95f01ba5" }
+moveshield-compiler = { path = "../../crates/moveshield-compiler" }
+moveshield-config = { path = "../../crates/moveshield-config" }
+moveshield-core = { path = "../../crates/moveshield-core" }
+moveshield-findings = { path = "../../crates/moveshield-findings" }
+moveshield-graph = { path = "../../crates/moveshield-graph" }
+moveshield-ir = { path = "../../crates/moveshield-ir" }
+moveshield-knowledge = { path = "../../crates/moveshield-knowledge" }
+moveshield-policy = { path = "../../crates/moveshield-policy" }
+moveshield-report = { path = "../../crates/moveshield-report" }
+moveshield-rules = { path = "../../crates/moveshield-rules" }
+sui-package-alt = { git = "https://github.com/MystenLabs/sui.git", rev = "79479aed266b8d2318ed91056aaf8f8a95f01ba5" }
+clap = { version = "4.4", features = ["derive"] }
+serde_json = "1.0"
+toml = "0.8"

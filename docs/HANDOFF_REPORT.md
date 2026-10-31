@@ -1,6 +1,6 @@
 # MoveShield Project Status
 
-Last verified: 2026-10-30
+Last verified: 2026-10-31
 
 This report replaces the previous handoff snapshot, which contained outdated
 branch, test-count, and feature-status information.
@@ -22,24 +22,35 @@ branch, test-count, and feature-status information.
   macOS x86_64/Apple Silicon, and Windows x86_64 and publishes SHA-256 checksums.
 - Dispatching the release workflow manually runs the multi-platform build
   without publishing; publishing is restricted to matching version tags.
+- A separately built Sui compiler-backed CLI is available in source. It is
+  tested separately and does not affect default builds or release binaries.
 
 ## Important limitations
 
 ### Compiler integration
 
-Analysis currently uses `DevelopmentParserAdapter`, a lightweight source
-parser. It does not invoke or consume the official Sui Move compiler AST and
-does not type-check packages. Its parsing, locations, and findings can be
-incomplete or incorrect. A clean scan must not be interpreted as a security
-guarantee.
+The default analysis path uses `DevelopmentParserAdapter`, a lightweight
+source parser. It does not invoke or consume the official Sui Move compiler
+AST and does not type-check packages. Its parsing, locations, and findings can
+be incomplete or incorrect. A clean scan must not be interpreted as a
+security guarantee.
 
 The official Sui build tooling is maintained within the Sui workspace; for
 example, [`sui-move-build`](https://github.com/MystenLabs/sui/tree/main/crates/sui-move-build)
 uses workspace-local Move/Sui dependencies. The Sui onboarding documentation
 shows building a Move package with the Sui toolchain:
 [Build and Publish a Package](https://docs.sui.io/getting-started/onboarding/hello-world).
-Integrating and validating a real compiler adapter is still the highest
-priority before production or security-critical use.
+
+The separate `moveshield-sui` CLI uses the official Sui package resolver and
+Move compiler through the typing pass, then converts root-package AST
+declarations, calls, complexity, and source locations into MoveShield's model.
+Run it from source with
+`cargo run --manifest-path apps/sui-cli/Cargo.toml -- analyze ./path/to/package`.
+The Sui dependencies are pinned to an exact repository revision. This backend
+does not verify bytecode or model every compiler AST construct. The default
+CLI parser remains the development parser, and published v0.1.0 binaries do
+not include this backend. This is a compiler-backed analysis milestone, not
+production-grade security analysis.
 
 ### Analysis and product scope
 
@@ -51,8 +62,8 @@ priority before production or security-critical use.
   incomplete or skeletal; they are not all wired into the CLI.
 - Plugin loading, graph visualization, GitHub Action integration, IDE support,
   cloud, and enterprise features are not implemented.
-- GitHub release automation is configured, but a release still requires pushing
-  a version tag matching `moveshield-cli` after the workflow has been reviewed.
+- GitHub release `v0.1.0` is published. Later compiler work has not been
+  released.
 - The project is dual-licensed MIT OR Apache-2.0; each CLI archive includes
   both license texts.
 - `doctor` checks local Rust tools and reports whether Sui is installed; it does
@@ -67,6 +78,10 @@ cargo fmt --all -- --check
 cargo clippy --workspace --all-targets -- -D warnings
 cargo test --workspace
 cargo build --workspace --release
+
+cargo fmt --manifest-path apps/sui-cli/Cargo.toml -- --check
+cargo clippy --manifest-path apps/sui-cli/Cargo.toml --locked --all-targets -- -D warnings
+cargo test --manifest-path apps/sui-cli/Cargo.toml --locked
 ```
 
 Analyze the bundled example:
@@ -81,11 +96,11 @@ PATH` for a selected SARIF file, and `--format terminal` to skip file output.
 
 ## Next milestones
 
-1. Implement and validate an official Sui compiler adapter, with supported
-   compiler versions and clear diagnostics.
-2. Expand per-rule tests and run a representative corpus of real Move projects;
+1. Expand per-rule tests and run a representative corpus of real Move projects;
    verify source locations and SARIF with the official schema/tooling.
-3. Improve semantic models and analysis before making security guarantees.
+2. Expand semantic models to cover remaining compiler AST constructs and
+   validate findings against compiler-verified package examples.
+3. Improve analysis before making security guarantees.
 4. Complete policy/suppression behavior, or remove unsupported claims until it
    is implemented.
 5. Add incremental caching and plugin support only when their behavior and
