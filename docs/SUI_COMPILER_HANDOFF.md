@@ -20,7 +20,9 @@ This branch changes previously silent omission of module-level enums, friend dec
 
 The only compiler revision claimed by this implementation is the pinned Sui commit above. Revision updates must be deliberate dependency and lockfile changes, followed by the Sui tests and CI; upstream `main` is not followed automatically. Package editions, flavors, dependency sources, lockfile mutations, offline behavior, and configuration support still need a formal tested matrix.
 
-For the pinned compiler, [`PackageLoader::load`](https://github.com/MystenLabs/sui/blob/79479aed266b8d2318ed91056aaf8f8a95f01ba5/external-crates/move/crates/move-package/src/package/package_loader.rs) documents that loading does not write the lockfile; writing pinned dependencies is a separate operation. A local no-dependency fixture now verifies the CLI leaves `Move.toml` byte-identical and does not create `Move.lock`. This does not yet establish mutation behavior for Git/local dependencies, repinning, offline failures, or other package layouts.
+For the pinned compiler, [`PackageLoader::load`](https://github.com/MystenLabs/sui/blob/79479aed266b8d2318ed91056aaf8f8a95f01ba5/external-crates/move/crates/move-package/src/package/package_loader.rs) documents that loading does not write the lockfile; writing pinned dependencies is a separate operation. Local fixtures with and without a local dependency verify the CLI leaves the root `Move.toml` byte-identical and does not create `Move.lock`. This does not yet establish mutation behavior for Git dependencies, repinning, offline failures, or other package layouts.
+
+A separate local-dependency fixture verifies a `local = "../helper"` dependency resolves and type-checks, while the MoveShield report contains only the root module. Git dependencies, nested/transitive dependency graphs, dependency address remapping, and offline/missing-network behavior remain untested.
 
 This is not a complete Sui build and does not run bytecode verification. Function bodies are retained as source text and summarized for calls/complexity; `Function.ast` is not populated with a complete MoveShield AST. Generic constraints, attributes, acquires, and other source/semantic details are not comprehensively represented. A successful compiler type check is not a security guarantee, and findings remain heuristic and incomplete.
 
@@ -37,7 +39,7 @@ Accessed 2026-10-31:
 
 - Installed the stable Rust toolchain from `rustup` (rustc 1.99.1, rustfmt, Clippy).
 - Passed: `cargo fmt --manifest-path apps/sui-cli/Cargo.toml --all -- --check`.
-- Passed: `cargo test --manifest-path apps/sui-cli/Cargo.toml --locked` (4 unit tests, 5 integration tests).
+- Passed: `cargo test --manifest-path apps/sui-cli/Cargo.toml --locked` (4 unit tests, 6 integration tests).
 - Passed: focused unsupported-member location matrix, all-format no-report test, and multiple-member first-error test.
 - Passed: `cargo clippy --manifest-path apps/sui-cli/Cargo.toml --locked --all-targets -- -D warnings`.
 - The first clean Sui compilation took 11m38s; `apps/sui-cli/target` reached about 10 GB. At the last disk check, the workspace had 7.1 GB free. No root build was run because shared root crates were unchanged. Do not delete shared Cargo registry/Git caches.

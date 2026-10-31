@@ -1,0 +1,6 @@
+[package]
+name = "local_root"
+version = "0.0.1"
+
+[dependencies]
+helper = { local = "../helper" }

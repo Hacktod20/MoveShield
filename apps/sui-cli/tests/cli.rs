@@ -59,6 +59,39 @@ fn analyze_does_not_mutate_manifest_or_create_move_lock() {
 }
 
 #[test]
+fn analyze_type_checks_local_dependency_but_reports_only_root_modules() {
+    let package =
+        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/local_dependency/root");
+    let manifest_path = package.join("Move.toml");
+    let lock_path = package.join("Move.lock");
+    let manifest_before = fs::read(&manifest_path).expect("failed to read root manifest");
+    assert!(
+        !lock_path.exists(),
+        "fixture unexpectedly contains Move.lock"
+    );
+
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+        .args(["analyze", package.to_str().unwrap(), "--format", "json"])
+        .output()
+        .expect("failed to run MoveShield Sui CLI");
+
+    assert!(matches!(output.status.code(), Some(0) | Some(2)));
+    let report: Value =
+        serde_json::from_slice(&output.stdout).expect("analysis output should be valid JSON");
+    assert_eq!(report["project"], "local_root");
+    assert_eq!(report["summary"]["total_modules"], 1);
+    assert_eq!(
+        report["findings"][0]["location"]["file"],
+        "sources/root.move"
+    );
+    assert_eq!(
+        fs::read(&manifest_path).expect("failed to reread root manifest"),
+        manifest_before
+    );
+    assert!(!lock_path.exists(), "dependency analysis created Move.lock");
+}
+
+#[test]
 fn unsupported_constructs_fail_with_exact_locations_and_no_json() {
     let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let cases = [
