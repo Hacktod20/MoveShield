@@ -59,13 +59,21 @@ fn analyze_does_not_mutate_manifest_or_create_move_lock() {
 }
 
 #[test]
-fn unsupported_module_members_fail_with_exact_locations_and_no_json() {
+fn unsupported_constructs_fail_with_exact_locations_and_no_json() {
     let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let cases = [
-        ("unsupported_constant", "constant", 2, 5),
-        ("unsupported_enum", "enum", 2, 5),
-        ("unsupported_friend", "friend declaration", 4, 5),
-        ("unsupported_spec", "specification", 2, 5),
+        ("unsupported_constant", "module-level constant", 2, 5),
+        ("unsupported_enum", "module-level enum", 2, 5),
+        ("unsupported_method_call", "method call expression", 7, 9),
+        (
+            "unsupported_friend",
+            "module-level friend declaration",
+            4,
+            5,
+        ),
+        ("unsupported_spec", "module-level specification", 2, 5),
+        ("unsupported_macro", "macro function", 2, 5),
+        ("unsupported_use_fun", "method-style use fun import", 12, 5),
     ];
 
     for (fixture, kind, line, column) in cases {
@@ -78,10 +86,7 @@ fn unsupported_module_members_fail_with_exact_locations_and_no_json() {
         assert_eq!(output.status.code(), Some(1), "{fixture}");
         assert!(output.stdout.is_empty(), "{fixture} emitted JSON");
         let stderr = String::from_utf8_lossy(&output.stderr);
-        assert!(
-            stderr.contains(&format!("module-level {kind}")),
-            "{fixture}: {stderr}"
-        );
+        assert!(stderr.contains(kind), "{fixture}: {stderr}");
         assert!(
             stderr.contains(&format!("sources/{fixture}.move:{line}:{column}")),
             "{fixture}: {stderr}"

@@ -244,6 +244,14 @@ fn convert_module(
     for member in module.members {
         match member {
             ModuleMember::Function(function) => {
+                if function.macro_.is_some() {
+                    return Err(unsupported_construct(
+                        "macro function",
+                        &function.loc,
+                        mapped_files,
+                        project_root,
+                    )?);
+                }
                 let body_text = source_text(mapped_files, &function.body.loc)?.to_string();
                 let mut metrics = AstMetrics {
                     complexity: 1,
@@ -251,6 +259,14 @@ fn convert_module(
                 };
                 if let FunctionBody_::Defined(sequence) = &function.body.value {
                     metrics.visit_sequence(sequence);
+                }
+                if let Some(loc) = &metrics.unsupported_method_call {
+                    return Err(unsupported_construct(
+                        "method call expression",
+                        loc,
+                        mapped_files,
+                        project_root,
+                    )?);
                 }
                 let parameters = function
                     .signature
@@ -321,35 +337,41 @@ fn convert_module(
                 });
             }
             ModuleMember::Use(use_decl) => {
-                use_statements.extend(convert_use(&use_decl.use_, addresses));
+                use_statements.extend(convert_use(
+                    &use_decl.use_,
+                    &use_decl.loc,
+                    mapped_files,
+                    project_root,
+                    addresses,
+                )?);
             }
             ModuleMember::Enum(definition) => {
-                return Err(unsupported_module_member(
-                    "enum",
+                return Err(unsupported_construct(
+                    "module-level enum",
                     &definition.loc,
                     mapped_files,
                     project_root,
                 )?);
             }
             ModuleMember::Friend(declaration) => {
-                return Err(unsupported_module_member(
-                    "friend declaration",
+                return Err(unsupported_construct(
+                    "module-level friend declaration",
                     &declaration.loc,
                     mapped_files,
                     project_root,
                 )?);
             }
             ModuleMember::Constant(definition) => {
-                return Err(unsupported_module_member(
-                    "constant",
+                return Err(unsupported_construct(
+                    "module-level constant",
                     &definition.loc,
                     mapped_files,
                     project_root,
                 )?);
             }
             ModuleMember::Spec(specification) => {
-                return Err(unsupported_module_member(
-                    "specification",
+                return Err(unsupported_construct(
+                    "module-level specification",
                     &specification.loc,
                     mapped_files,
                     project_root,
@@ -368,7 +390,7 @@ fn convert_module(
     })
 }
 
-fn unsupported_module_member(
+fn unsupported_construct(
     kind: &str,
     loc: &Loc,
     mapped_files: &MappedFiles,
@@ -376,7 +398,7 @@ fn unsupported_module_member(
 ) -> Result<Error> {
     let location = convert_location(mapped_files, loc, project_root)?;
     Ok(Error::Compiler(format!(
-        "MoveShield Sui analysis does not support this module-level {kind} at {}:{}:{}; no report was produced",
+        "MoveShield Sui analysis does not support this {kind} at {}:{}:{}; no report was produced",
         location.file.display(),
         location.start_line,
         location.start_column,
@@ -385,16 +407,20 @@ fn unsupported_module_member(
 
 fn convert_use(
     use_decl: &ast::Use,
+    loc: &Loc,
+    mapped_files: &MappedFiles,
+    project_root: &Path,
     addresses: &std::collections::HashMap<String, String>,
-) -> Vec<moveshield_core::models::UseStatement> {
+) -> Result<Vec<moveshield_core::models::UseStatement>> {
     match use_decl {
-        ast::Use::ModuleUse(module_ident, module_use) => {
-            vec![convert_module_use(
-                leading_address(&module_ident.value.address, addresses),
-                module_ident.value.module.0.value.to_string(),
-                module_use,
-            )]
-        }
+        ast::Use::ModuleUse(module_ident, module_use) => Ok(vec![convert_module_use(
+            leading_address(&module_ident.value.address, addresses),
+            module_ident.value.module.0.value.to_string(),
+            module_use,
+            loc,
+            mapped_files,
+            project_root,
+        )?]),
         ast::Use::NestedModuleUses(address, modules) => modules
             .iter()
             .map(|(module, module_use)| {
@@ -402,10 +428,24 @@ fn convert_use(
                     leading_address(address, addresses),
                     module.0.value.to_string(),
                     module_use,
+                    loc,
+                    mapped_files,
+                    project_root,
                 )
             })
-            .collect(),
-        ast::Use::Fun { .. } | ast::Use::Partial { .. } => Vec::new(),
+            .collect::<Result<Vec<_>>>(),
+        ast::Use::Fun { .. } => Err(unsupported_construct(
+            "method-style use fun import",
+            loc,
+            mapped_files,
+            project_root,
+        )?),
+        ast::Use::Partial { .. } => Err(unsupported_construct(
+            "partial use import",
+            loc,
+            mapped_files,
+            project_root,
+        )?),
     }
 }
 
@@ -413,7 +453,10 @@ fn convert_module_use(
     address: String,
     module: String,
     module_use: &ast::ModuleUse,
-) -> moveshield_core::models::UseStatement {
+    loc: &Loc,
+    mapped_files: &MappedFiles,
+    project_root: &Path,
+) -> Result<moveshield_core::models::UseStatement> {
     let members = match module_use {
         ast::ModuleUse::Module(alias) => alias
             .iter()
@@ -429,13 +472,20 @@ fn convert_module_use(
                 alias: alias.map(|alias| alias.value.to_string()),
             })
             .collect(),
-        ast::ModuleUse::Partial { .. } => Vec::new(),
+        ast::ModuleUse::Partial { .. } => {
+            return Err(unsupported_construct(
+                "partial module use import",
+                loc,
+                mapped_files,
+                project_root,
+            )?);
+        }
     };
-    moveshield_core::models::UseStatement {
+    Ok(moveshield_core::models::UseStatement {
         address: Some(address),
         module,
         members,
-    }
+    })
 }
 
 fn leading_address(
@@ -492,6 +542,7 @@ fn convert_location(mapped_files: &MappedFiles, loc: &Loc, root: &Path) -> Resul
 struct AstMetrics {
     complexity: usize,
     calls: Vec<String>,
+    unsupported_method_call: Option<Loc>,
 }
 
 impl AstMetrics {
@@ -597,6 +648,9 @@ impl AstMetrics {
             }
             Exp_::Dot(base, _, _) => self.visit_exp(base),
             Exp_::DotCall(base, _, _, _, _, arguments) => {
+                if self.unsupported_method_call.is_none() {
+                    self.unsupported_method_call = Some(expression.loc);
+                }
                 self.visit_exp(base);
                 for argument in &arguments.value {
                     self.visit_exp(argument);

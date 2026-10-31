@@ -107,11 +107,12 @@ root-package declarations, call references, complexity, and source locations
 from compiler AST data. It does not run bytecode verification or the complete
 Sui build pipeline, and MoveShield does not model every AST construct. Until
 those constructs are modeled, module-level enums, friend declarations,
-constants, and specification blocks stop analysis with a source-located error
+constants, specification blocks, macro functions, and method-style `use fun`
+imports, and method-call expressions stop analysis with a source-located error
 instead of producing a partial report; analysis stops at the first unsupported
-member in source order. Function bodies are not yet represented as a complete
-MoveShield AST. The published v0.1.0 binary remains unchanged and does not
-include this backend.
+construct in source order. Function bodies are not yet represented as a
+complete MoveShield AST. The published v0.1.0 binary remains unchanged and does
+not include this backend.
 
 ---
 
