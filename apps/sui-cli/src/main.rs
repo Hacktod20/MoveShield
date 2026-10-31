@@ -1,4 +1,4 @@
-//! CLI for analyzing Sui Move packages with the official Sui Move parser.
+//! CLI for analyzing Sui Move packages with the official Sui Move compiler.
 
 mod adapter;
 
@@ -21,7 +21,7 @@ use std::time::Instant;
 #[command(
     name = "moveshield-sui",
     version,
-    about = "MoveShield CLI using the official Sui Move parser"
+    about = "MoveShield CLI using the official Sui Move compiler"
 )]
 struct Cli {
     #[command(subcommand)]
@@ -30,7 +30,7 @@ struct Cli {
 
 #[derive(Subcommand)]
 enum Commands {
-    /// Analyze a Sui Move package with the official Sui Move parser
+    /// Analyze a Sui Move package with the official Sui Move compiler
     Analyze(AnalyzeArgs),
 }
 
@@ -89,12 +89,12 @@ fn analyze(args: AnalyzeArgs) -> u8 {
     };
 
     eprintln!(
-        "warning: the official Sui parser validates syntax but this backend does not type-check the package or guarantee security"
+        "warning: package syntax and types are checked by the official Sui compiler, but MoveShield findings remain incomplete and do not guarantee security"
     );
     let project = match SuiCompilerAdapter.compile(&args.path) {
         Ok(project) => project,
         Err(error) => {
-            eprintln!("[Analysis Failed] Sui compiler parsing error: {error}");
+            eprintln!("[Analysis Failed] Sui compiler analysis error: {error}");
             return 1;
         }
     };

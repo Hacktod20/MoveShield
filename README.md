@@ -5,7 +5,7 @@ MoveShield is a modular static-analysis prototype for the Move programming langu
 MoveShield is available under either the [MIT License](LICENSE-MIT) or
 [Apache License 2.0](LICENSE-APACHE), at your option.
 
-> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built CLI uses the official Sui Move parser AST, but does not expand dependencies or type-check packages. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.0 binary predates this backend.
+> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.0 binary predates this backend.
 
 ---
 
@@ -99,13 +99,14 @@ cargo run --manifest-path apps/sui-cli/Cargo.toml -- analyze ./example --format 
 
 By default, `analyze` prints the terminal report and writes `moveshield.sarif` to the current directory. Findings return exit code `2`, configuration errors return `3`, and other failures return `1`.
 
-The separate Sui CLI pulls the Move compiler from a pinned MystenLabs/Sui
-repository revision. This avoids making ordinary MoveShield builds download
-the large Sui compiler workspace. Its parser validates Move syntax and provides
-compiler-AST-derived declarations, call references, complexity, and source
-locations. It does not load package dependencies or run name resolution,
-typing, bytecode verification, or Sui's full package build. The published
-v0.1.0 binary remains unchanged and does not include this backend.
+The separate Sui CLI pulls the official Sui package tooling and Move compiler
+from a pinned MystenLabs/Sui repository revision. This avoids making ordinary
+MoveShield builds download the large Sui compiler workspace. It resolves
+package dependencies, runs the compiler through its typing pass, and derives
+root-package declarations, call references, complexity, and source locations
+from compiler AST data. It does not run bytecode verification or the complete
+Sui build pipeline, and MoveShield does not model every AST construct. The
+published v0.1.0 binary remains unchanged and does not include this backend.
 
 ---
 

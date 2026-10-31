@@ -32,7 +32,7 @@ jobs:
         run: cargo build --workspace --release
 
   sui-compiler:
-    name: Sui compiler parser / stable
+    name: Sui package compiler / stable
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

@@ -1,23 +1,26 @@
-//! Adapter for the official Sui Move source parser.
+//! Adapter for the official Sui Move package compiler.
 
-use move_compiler::command_line::compiler::{Compiler, PASS_PARSER};
+use move_compiler::command_line::compiler::{Compiler, PASS_PARSER, PASS_TYPING};
 use move_compiler::diagnostics::report_diagnostics_to_buffer_with_mapped_files;
 use move_compiler::editions::{Edition, Flavor};
 use move_compiler::parser::ast::{
     self, Definition, Exp, Exp_, FunctionBody_, ModuleDefinition, ModuleMember, Sequence,
     SequenceItem_, StructFields,
 };
-use move_compiler::shared::{files::MappedFiles, PackageConfig};
+use move_compiler::shared::{files::MappedFiles, PackageConfig, PackagePaths};
 use move_ir_types::location::Loc;
+use move_package::PackageLoader;
+use move_package_compilation::{build_config::BuildConfig, compilation::make_deps_for_compiler};
 use moveshield_compiler::{CompilerAdapter, ProjectDiscovery};
 use moveshield_core::errors::{Error, Result};
 use moveshield_core::models::{Field, Function, Location, Module, Package, Project, Struct};
 use std::collections::BTreeMap;
 use std::fs;
 use std::path::{Path, PathBuf};
+use sui_package_alt::{testnet_environment, SuiFlavor};
 
-/// Parses Sui Move sources with the official compiler parser and converts its AST to MoveShield's
-/// analysis model. This runs the compiler's parser pass; it does not type-check the package.
+/// Type-checks Sui Move packages with the official compiler and converts the source AST to
+/// MoveShield's analysis model.
 pub struct SuiCompilerAdapter;
 
 impl CompilerAdapter for SuiCompilerAdapter {
@@ -25,6 +28,7 @@ impl CompilerAdapter for SuiCompilerAdapter {
         let (package_name, addresses, source_files) =
             ProjectDiscovery::discover(path).map_err(Error::Compiler)?;
         let compiler_root = path.canonicalize().map_err(Error::Io)?;
+
         let manifest_path = path.join("Move.toml");
         let manifest = fs::read_to_string(&manifest_path).map_err(Error::Io)?;
         let manifest: toml::Value =
@@ -101,6 +105,8 @@ impl CompilerAdapter for SuiCompilerAdapter {
             )));
         }
         let (_, ast) = parser.into_ast();
+        let package_paths = resolve_package_paths(path)?;
+        type_check_package(package_paths)?;
 
         let mut modules = Vec::new();
         for package in ast.source_definitions {
@@ -137,6 +143,77 @@ impl CompilerAdapter for SuiCompilerAdapter {
             packages: vec![package],
         })
     }
+}
+
+fn resolve_package_paths(path: &Path) -> Result<(Vec<PackagePaths>, Vec<PackagePaths>)> {
+    let package = PackageLoader::new(path, testnet_environment(), SuiFlavor::new())
+        .load_sync()
+        .map_err(|error| {
+            Error::Compiler(format!(
+                "Sui Move package dependency resolution failed: {error}"
+            ))
+        })?;
+    let config = BuildConfig {
+        default_flavor: Some(Flavor::Sui),
+        ..BuildConfig::default()
+    };
+    let mut output = std::io::sink();
+    let package_paths =
+        make_deps_for_compiler(&mut output, package.packages(), &config).map_err(|error| {
+            Error::Compiler(format!("Sui Move package source discovery failed: {error}"))
+        })?;
+
+    let mut targets = Vec::new();
+    let mut dependencies = Vec::new();
+    for package in package_paths {
+        let (_, config) = package.name.as_ref().ok_or_else(|| {
+            Error::Compiler("Sui package loader returned an unnamed compiler package".to_string())
+        })?;
+        if config.is_dependency {
+            dependencies.push(package);
+        } else {
+            targets.push(package);
+        }
+    }
+
+    if targets.is_empty() {
+        return Err(Error::Compiler(
+            "Sui package loader did not return a root package".to_string(),
+        ));
+    }
+
+    Ok((targets, dependencies))
+}
+
+fn type_check_package(package_paths: (Vec<PackagePaths>, Vec<PackagePaths>)) -> Result<()> {
+    let (targets, dependencies) = package_paths;
+    let compiler = Compiler::from_package_paths(None, targets, dependencies)
+        .map_err(|error| Error::Compiler(error.to_string()))?;
+    let (mapped_files, result) = compiler
+        .run::<PASS_TYPING>()
+        .map_err(|error| Error::Compiler(error.to_string()))?;
+    let typed = result.map_err(|(pass, diagnostics)| {
+        Error::Compiler(format!(
+            "Sui Move package type checking failed at compiler pass {pass}:\n{}",
+            String::from_utf8_lossy(&report_diagnostics_to_buffer_with_mapped_files(
+                &mapped_files,
+                diagnostics,
+                false,
+            ))
+        ))
+    })?;
+    if typed.compilation_env().has_errors() {
+        let diagnostics = typed.compilation_env().take_final_diags();
+        return Err(Error::Compiler(format!(
+            "Sui Move package type checking reported errors:\n{}",
+            String::from_utf8_lossy(&report_diagnostics_to_buffer_with_mapped_files(
+                &mapped_files,
+                diagnostics,
+                false,
+            ))
+        )));
+    }
+    Ok(())
 }
 
 fn convert_module(
@@ -570,6 +647,38 @@ mod tests {
             "{message}"
         );
         assert!(message.contains("invalid.move"), "{message}");
+        fs::remove_dir_all(package).expect("failed to remove test package");
+    }
+
+    #[test]
+    fn type_errors_fail_with_official_compiler_diagnostics() {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock is before UNIX epoch")
+            .as_nanos();
+        let package = std::env::temp_dir().join(format!(
+            "moveshield-sui-type-error-test-{}-{timestamp}",
+            std::process::id()
+        ));
+        let sources = package.join("sources");
+        fs::create_dir_all(&sources).expect("failed to create test package");
+        fs::write(
+            package.join("Move.toml"),
+            "[package]\nname = \"type_error\"\nversion = \"0.0.1\"\n",
+        )
+        .expect("failed to write test manifest");
+        fs::write(
+            sources.join("type_error.move"),
+            "module 0x42::type_error { public fun broken(): u64 { true } }\n",
+        )
+        .expect("failed to write invalid Move source");
+
+        let error = SuiCompilerAdapter
+            .compile(&package)
+            .expect_err("type errors must fail official package analysis");
+        let message = error.to_string().to_lowercase();
+        assert!(message.contains("type checking"), "{message}");
+        assert!(message.contains("type_error.move"), "{message}");
         fs::remove_dir_all(package).expect("failed to remove test package");
     }
 }
