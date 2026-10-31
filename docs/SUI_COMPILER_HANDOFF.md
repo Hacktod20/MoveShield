@@ -1,60 +1,45 @@
 # Sui Compiler Integration Handoff
 
-## Current state
+## Status (2026-10-31)
 
-- Repository: `Hacktod20/MoveShield`
-- Working branch: `feature/official-sui-move-compiler`
-- Pull request: [#12](https://github.com/Hacktod20/MoveShield/pull/12)
-- Release/deployment: intentionally not performed. Keep this feature unreleased.
-- The original parser-only implementation was committed as `dd67c9f`; the branch and PR now continue that work with package-aware typing. Check the branch and PR for the latest commit.
+- Repository: `Hacktod20/MoveShield`.
+- Base: `main` at `d4a1c7c092819ed1ac7c115bd27c5aa6ef9b46f6` (PR #12 merged).
+- Working branch: `feature/sui-unsupported-constructs`, created from that base. Changes are not committed or pushed; no follow-up PR exists yet.
+- Release/deployment: none. Keep the Sui backend unreleased; the default CLI and published `v0.1.0` binary remain unchanged.
+- PR #12's latest reported Linux, macOS, Windows, and Sui compiler checks all passed. Those checks validate the merged baseline, not the changes on this branch.
 
-## What is implemented
+## Implemented behavior
 
-The opt-in CLI lives under `apps/sui-cli` and is intentionally outside the root Cargo workspace, so the existing default CLI and published `v0.1.0` release do not acquire the large Sui compiler dependencies.
+The opt-in CLI is isolated at `apps/sui-cli`, outside the root Cargo workspace. Its MystenLabs/Sui dependencies all use revision `79479aed266b8d2318ed91056aaf8f8a95f01ba5`; the standalone lockfile pins `allocative` to `0.3.4` to match the tested Sui dependency graph.
 
-The CLI uses official MystenLabs/Sui dependencies pinned to revision `79479aed266b8d2318ed91056aaf8f8a95f01ba5`. The adapter:
+The adapter loads package dependencies, parses with the official compiler, type-checks through `PASS_TYPING`, and maps selected root-package modules, functions, structs, calls, complexity, and source locations into MoveShield's model. Loaded dependencies are type-checked but are not analyzed as MoveShield packages.
 
-1. Discovers the root package and source files.
-2. Uses the official Sui `PackageLoader` and offline `SuiFlavor` to load the manifest, dependency graph, and named addresses.
-3. Uses Sui's package-compilation source discovery and compiler `PASS_TYPING` to type-check the package and dependencies.
-4. Parses with the official compiler parser, then maps root-package modules, functions, structs, calls, complexity, and source locations into MoveShield's existing model.
-5. Returns compiler/parser/type diagnostics as errors rather than silently accepting failed analysis.
+This branch changes previously silent omission of module-level enums, friend declarations, constants, and specification blocks into an error containing the source path and position. The adapter returns no `Project`, so the CLI cannot emit an analysis report for those inputs. A regression test covers a constant. The change remains unverified locally because this container has no `cargo` executable.
 
-The standalone lockfile pins `allocative` to `0.3.4`, matching the Sui workspace lockfile. Newer `allocative` versions failed to compile Sui's `starlark_map` dependency against its `hashbrown` version.
+## Compatibility and coverage boundary
 
-The root `README.md`, `docs/HANDOFF_REPORT.md`, and CI workflow were updated to describe this compiler-backed behavior and its remaining limits.
+The only compiler revision claimed by this implementation is the pinned Sui commit above. Revision updates must be deliberate dependency and lockfile changes, followed by the Sui tests and CI; upstream `main` is not followed automatically. Package editions, flavors, dependency sources, lockfile mutations, offline behavior, and configuration support still need a formal tested matrix.
 
-## Important limitations
+This is not a complete Sui build and does not run bytecode verification. Function bodies are retained as source text and summarized for calls/complexity; `Function.ast` is not populated with a complete MoveShield AST. Generic constraints, attributes, acquires, and other source/semantic details are not comprehensively represented. A successful compiler type check is not a security guarantee, and findings remain heuristic and incomplete.
 
-- This is not a full Sui build: it does not run bytecode verification or every Sui build/lint step.
-- MoveShield currently analyzes only the root package AST. Dependencies are resolved and type-checked but are not incorporated into MoveShield's analysis model.
-- The adapter intentionally does not model every AST construct (including some member categories such as enums, friends, constants, and specifications); findings can therefore be incomplete.
-- A successful type check or clean MoveShield report is not a security guarantee. Existing rules need validation against representative contracts and confirmed outcomes.
-- The default CLI remains heuristic. The published `v0.1.0` binaries do not contain this backend.
-- Aptos compiler integration has not been started.
+## Research record
 
-## Validation status
+Accessed 2026-10-31:
 
-The original parser-only PR passed its GitHub CI checks on Linux, macOS, and Windows, including the Sui CLI job. After adding package loading and typing, `cargo test --manifest-path apps/sui-cli/Cargo.toml` completed successfully once, with two adapter tests and one CLI test. It required roughly 11 minutes to compile the expanded dependency graph and the package-analysis test took about 2.5 minutes.
+- [Pinned Move parser AST](https://github.com/MystenLabs/sui/blob/79479aed266b8d2318ed91056aaf8f8a95f01ba5/external-crates/move/crates/move-compiler/src/parser/ast.rs): `ModuleMember` includes `Function`, `Struct`, `Enum`, `Use`, `Friend`, `Constant`, and `Spec`. This exact source revision confirms the cases guarded by the adapter; it is the basis for failing closed rather than silently dropping the latter four.
+- [Official Sui package overview](https://docs.sui.io/develop/write-move/package-overview): describes Sui's package/module model. It does not establish analyzer coverage or equate compiler acceptance with security.
 
-An additional type-error regression test and final wording/documentation changes were added after that successful run. Local validation was then interrupted because the build artifacts had grown very large. **Do not treat the latest working tree as fully verified until the new commit's GitHub CI checks pass.** Run the Sui CI job remotely and fix any failures before merging.
+## Validation and resources
 
-## Machine resource note
+- Attempted: `cargo test --manifest-path apps/sui-cli/Cargo.toml --locked unsupported_module_members_fail_with_source_location`. It did not start: `bash: cargo: command not found`.
+- Not run: Rust formatting, Sui tests, Clippy, and root workspace checks. No build was started. At inspection, the workspace filesystem had 19 GB free and no repository `target` directory was present.
+- Historical PR #12 check results are successful, but cannot validate this branch's edits. Do not treat this change as verified until focused Sui tests and Sui CI pass.
+- Do not delete shared Cargo registry/Git caches. If cleanup is needed after a build, clean only this repository's root or `apps/sui-cli` target directories.
 
-The project generated approximately 14 GB in `apps/sui-cli/target` and 5.7 GB in the root `target`. After pushing the work, clear only these project build directories with:
+## Next work, in priority order
 
-```sh
-cargo clean
-cargo clean --manifest-path apps/sui-cli/Cargo.toml
-```
-
-Do not delete the shared `~/.cargo/registry` or `~/.cargo/git` caches; they may be used by other projects and are not project build artifacts.
-
-## Continue from here
-
-1. Inspect `git status`, commit all pending feature and handoff changes, and push them to `feature/official-sui-move-compiler`.
-2. Update PR #12's title/body from “parser” to package-aware compiler/type checking, mark the PR ready, and wait for CI on the latest commit.
-3. Fix CI or test failures. Do not merge on the strength of the older checks.
-4. Once all required checks pass, merge PR #12 as requested. Do not tag, release, or deploy.
-5. Clean the two project `target` directories above and confirm the worktree is clean.
-6. Follow-up engineering: add a dependency-aware semantic model; model currently skipped AST constructs; test package aliases, local/git dependencies, editions, and type-error cases; build a real Sui package corpus with expected findings and verified line locations; document supported Sui revision policy; review rule accuracy and performance. Consider Aptos only after the Sui path has a reliable coverage baseline.
+1. Make Rust tooling available, then run `cargo fmt --manifest-path apps/sui-cli/Cargo.toml --all -- --check`, the focused unsupported-member test, the full locked Sui tests, and Sui Clippy. Acceptance: all pass on this branch or CI, with resource use recorded.
+2. Add independent fixtures for enum, friend, and specification diagnostics, and then model or explicitly surface other unsupported AST constructs. Acceptance: every dropped compiler node is represented or prevents report generation with a mapped source location.
+3. Establish and test package/toolchain behavior for supported editions, named addresses, local and Git dependencies, offline/missing-network cases, and workspace mutations. Acceptance: a published support matrix and tests that assert failure does not emit reports or mutate user metadata unexpectedly.
+4. Audit every advertised rule against Sui semantics and validate on a pinned, licensed public package corpus. Acceptance: rule-specific positive, negative, boundary, and regression fixtures plus explainable corpus results.
+5. Complete CLI/report/configuration/SARIF gates, threat-model and limitations docs, performance baselines, and a release-readiness checklist. Keep release, publishing, deployment, and default-CLI migration out of scope without explicit approval.

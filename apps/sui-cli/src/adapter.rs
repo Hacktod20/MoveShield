@@ -323,10 +323,38 @@ fn convert_module(
             ModuleMember::Use(use_decl) => {
                 use_statements.extend(convert_use(&use_decl.use_, addresses));
             }
-            ModuleMember::Enum(_)
-            | ModuleMember::Friend(_)
-            | ModuleMember::Constant(_)
-            | ModuleMember::Spec(_) => {}
+            ModuleMember::Enum(definition) => {
+                return Err(unsupported_module_member(
+                    "enum",
+                    &definition.loc,
+                    mapped_files,
+                    project_root,
+                )?);
+            }
+            ModuleMember::Friend(declaration) => {
+                return Err(unsupported_module_member(
+                    "friend declaration",
+                    &declaration.loc,
+                    mapped_files,
+                    project_root,
+                )?);
+            }
+            ModuleMember::Constant(definition) => {
+                return Err(unsupported_module_member(
+                    "constant",
+                    &definition.loc,
+                    mapped_files,
+                    project_root,
+                )?);
+            }
+            ModuleMember::Spec(specification) => {
+                return Err(unsupported_module_member(
+                    "specification",
+                    &specification.loc,
+                    mapped_files,
+                    project_root,
+                )?);
+            }
         }
     }
 
@@ -338,6 +366,21 @@ fn convert_module(
         structs,
         use_statements,
     })
+}
+
+fn unsupported_module_member(
+    kind: &str,
+    loc: &Loc,
+    mapped_files: &MappedFiles,
+    project_root: &Path,
+) -> Result<Error> {
+    let location = convert_location(mapped_files, loc, project_root)?;
+    Ok(Error::Compiler(format!(
+        "MoveShield Sui analysis does not support this module-level {kind} at {}:{}:{}; no report was produced",
+        location.file.display(),
+        location.start_line,
+        location.start_column,
+    )))
 }
 
 fn convert_use(
@@ -679,6 +722,42 @@ mod tests {
         let message = error.to_string().to_lowercase();
         assert!(message.contains("type checking"), "{message}");
         assert!(message.contains("type_error.move"), "{message}");
+        fs::remove_dir_all(package).expect("failed to remove test package");
+    }
+
+    #[test]
+    fn unsupported_module_members_fail_with_source_location() {
+        let timestamp = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .expect("system clock is before UNIX epoch")
+            .as_nanos();
+        let package = std::env::temp_dir().join(format!(
+            "moveshield-sui-unsupported-member-test-{}-{timestamp}",
+            std::process::id()
+        ));
+        let sources = package.join("sources");
+        fs::create_dir_all(&sources).expect("failed to create test package");
+        fs::write(
+            package.join("Move.toml"),
+            "[package]\nname = \"unsupported_member\"\nversion = \"0.0.1\"\n",
+        )
+        .expect("failed to write test manifest");
+        fs::write(
+            sources.join("unsupported.move"),
+            "module 0x42::unsupported {\n    const ANSWER: u64 = 42;\n}\n",
+        )
+        .expect("failed to write Move source");
+
+        let error = SuiCompilerAdapter
+            .compile(&package)
+            .expect_err("unsupported module members must not produce an analysis");
+        let message = error.to_string();
+        assert!(
+            message.contains("does not support this module-level constant"),
+            "{message}"
+        );
+        assert!(message.contains("sources/unsupported.move:2:"), "{message}");
+        assert!(message.contains("no report was produced"), "{message}");
         fs::remove_dir_all(package).expect("failed to remove test package");
     }
 }
