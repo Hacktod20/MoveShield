@@ -22,10 +22,10 @@ jobs:
         id: version
         shell: bash
         run: |
-          version="$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "moveshield-cli") | .version')"
+          version="$(cargo metadata --manifest-path apps/sui-cli/Cargo.toml --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "moveshield-sui-cli") | .version')"
           tag="v$version"
           if [[ "$GITHUB_EVENT_NAME" == "push" && "$GITHUB_REF_NAME" != "$tag" ]]; then
-            echo "Release tag $GITHUB_REF_NAME does not match moveshield-cli version $tag" >&2
+            echo "Release tag $GITHUB_REF_NAME does not match moveshield-sui-cli version $tag" >&2
             exit 1
           fi
           if [[ "$GITHUB_EVENT_NAME" == "push" ]]; then
@@ -56,12 +56,12 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - name: Build CLI
-        run: cargo build --locked --release --package moveshield-cli --target ${{ matrix.target }}
+        run: cargo build --locked --release --manifest-path apps/sui-cli/Cargo.toml --bin moveshield --target ${{ matrix.target }}
       - name: Verify Linux GLIBC baseline
         if: matrix.target == 'x86_64-unknown-linux-gnu'
         shell: bash
         run: |
-          binary="target/${{ matrix.target }}/release/moveshield"
+          binary="apps/sui-cli/target/${{ matrix.target }}/release/moveshield"
           required_glibc="$(readelf --version-info "$binary" |
             grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' |
             sort -Vu |
@@ -85,13 +85,25 @@ jobs:
         run: |
           mkdir package
           if [[ "$RUNNER_OS" == "Windows" ]]; then
-            cp "target/$TARGET/release/moveshield.exe" package/
+            cp "apps/sui-cli/target/$TARGET/release/moveshield.exe" package/
           else
-            cp "target/$TARGET/release/moveshield" package/
+            cp "apps/sui-cli/target/$TARGET/release/moveshield" package/
           fi
           cp LICENSE LICENSE-MIT LICENSE-APACHE README.md package/
           archive="moveshield-${RELEASE_TAG}-${TARGET}.tar.gz"
           tar -czf "$archive" -C package .
+      - name: Smoke-test Linux Sui compiler install
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ needs.validate.outputs.tag }}
+        run: |
+          sha256sum "moveshield-${RELEASE_TAG}-${{ matrix.target }}.tar.gz" > SHA256SUMS
+          bash scripts/smoke-linux-install.sh \
+            "moveshield-${RELEASE_TAG}-${{ matrix.target }}.tar.gz" \
+            SHA256SUMS \
+            "$GITHUB_WORKSPACE" \
+            "${RELEASE_TAG#v}"
       - uses: actions/upload-artifact@v4
         with:
           name: ${{ matrix.target }}

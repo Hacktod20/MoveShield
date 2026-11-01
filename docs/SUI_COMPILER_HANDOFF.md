@@ -5,12 +5,12 @@
 - Repository: `Hacktod20/MoveShield`.
 - Base: `main` at `d4a1c7c092819ed1ac7c115bd27c5aa6ef9b46f6` (PR #12 merged).
 - Working branch: `feature/sui-unsupported-constructs`, based on that commit. PR [#13](https://github.com/Hacktod20/MoveShield/pull/13) is open and carries the follow-up validation work.
-- Release/deployment: none. Keep the Sui backend unreleased; the default CLI and published `v0.1.0` binary remain unchanged.
+- Published releases through v0.1.1 contain only the heuristic CLI. v0.1.2 is being prepared to ship the compiler-backed CLI as the default `moveshield`; do not publish until the target-platform build and release smoke checks pass.
 - At review time, PR #13 head `6c75ba0` had passing Linux, macOS, Windows, and Sui compiler checks. Follow-up changes in this worktree require a fresh CI run before merge.
 
 ## Implemented behavior
 
-The opt-in CLI is isolated at `apps/sui-cli`, outside the root Cargo workspace. Its MystenLabs/Sui dependencies all use revision `79479aed266b8d2318ed91056aaf8f8a95f01ba5`; the standalone lockfile pins `allocative` to `0.3.4` to match the tested Sui dependency graph.
+The Sui CLI is isolated at `apps/sui-cli`, outside the root Cargo workspace. Its MystenLabs/Sui dependencies all use revision `79479aed266b8d2318ed91056aaf8f8a95f01ba5`; the standalone lockfile pins `allocative` to `0.3.4` to match the tested Sui dependency graph. The v0.1.2 release candidate names its executable `moveshield`.
 
 The adapter loads package dependencies, parses with the official compiler, type-checks through `PASS_TYPING`, and maps selected root-package modules, functions, structs, calls, complexity, and source locations into MoveShield's model. Loaded dependencies are type-checked but are not analyzed as MoveShield packages.
 
@@ -28,7 +28,7 @@ This is not a complete Sui build and does not run bytecode verification. Functio
 
 ## Release installation and update decision
 
-The default published binary is `moveshield-cli` v0.1.0, which uses the heuristic development parser. The compiler-backed `moveshield-sui` binary is not included in releases. The release workflow packages raw `.tar.gz` archives for GNU/Linux x86_64, macOS Intel/Apple Silicon, and Windows x86_64; it does not create OS packages, an installer, an uninstaller, an updater, or signed release metadata.
+Published v0.1.0 and v0.1.1 binaries use the heuristic development parser. The v0.1.2 candidate switches the default release executable to the compiler-backed Sui analyzer. The release workflow packages raw `.tar.gz` archives for GNU/Linux x86_64, macOS Intel/Apple Silicon, and Windows x86_64; it does not create OS packages, an installer, an uninstaller, an updater, or signed release metadata.
 
 Accessed 2026-11-01:
 

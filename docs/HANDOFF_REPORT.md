@@ -22,18 +22,20 @@ branch, test-count, and feature-status information.
   macOS x86_64/Apple Silicon, and Windows x86_64 and publishes SHA-256 checksums.
 - Dispatching the release workflow manually runs the multi-platform build
   without publishing; publishing is restricted to matching version tags.
-- A separately built Sui compiler-backed CLI is available in source. It is
-  tested separately and does not affect default builds or release binaries.
+- The compiler-backed Sui CLI is the v0.1.2 release candidate and is intended
+  to ship as the default `moveshield` executable. Cross-platform builds and
+  release smoke tests must pass before publishing.
 
 ## Important limitations
 
 ### Compiler integration
 
-The default analysis path uses `DevelopmentParserAdapter`, a lightweight
-source parser. It does not invoke or consume the official Sui Move compiler
-AST and does not type-check packages. Its parsing, locations, and findings can
-be incomplete or incorrect. A clean scan must not be interpreted as a
-security guarantee.
+The release candidate invokes the official Sui compiler to parse and type
+check packages. It does not run the complete Sui build or bytecode verifier.
+The adapter models selected root-package AST constructs; unsupported
+constructs fail closed, and dependencies are type-checked but are not analyzed
+for findings. Findings can be incomplete or incorrect. A clean scan must not
+be interpreted as a security guarantee.
 
 The official Sui build tooling is maintained within the Sui workspace; for
 example, [`sui-move-build`](https://github.com/MystenLabs/sui/tree/main/crates/sui-move-build)
@@ -41,16 +43,15 @@ uses workspace-local Move/Sui dependencies. The Sui onboarding documentation
 shows building a Move package with the Sui toolchain:
 [Build and Publish a Package](https://docs.sui.io/getting-started/onboarding/hello-world).
 
-The separate `moveshield-sui` CLI uses the official Sui package resolver and
-Move compiler through the typing pass, then converts root-package AST
+The `moveshield` CLI uses the official Sui package resolver and Move compiler
+through the typing pass, then converts root-package AST
 declarations, calls, complexity, and source locations into MoveShield's model.
-Run it from source with
-`cargo run --manifest-path apps/sui-cli/Cargo.toml -- analyze ./path/to/package`.
+Build it from source with
+`cargo build --manifest-path apps/sui-cli/Cargo.toml --release --bin moveshield`.
 The Sui dependencies are pinned to an exact repository revision. This backend
 does not verify bytecode or model every compiler AST construct. The default
-CLI parser remains the development parser, and published v0.1.0 binaries do
-not include this backend. This is a compiler-backed analysis milestone, not
-production-grade security analysis.
+CLI is a compiler-backed analysis milestone, not production-grade security
+analysis.
 
 ### Analysis and product scope
 

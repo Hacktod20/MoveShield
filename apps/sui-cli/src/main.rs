@@ -19,9 +19,9 @@ use std::time::Instant;
 
 #[derive(Parser)]
 #[command(
-    name = "moveshield-sui",
+    name = "moveshield",
     version,
-    about = "MoveShield CLI using the official Sui Move compiler"
+    about = "MoveShield static analyzer using the official Sui Move compiler"
 )]
 struct Cli {
     #[command(subcommand)]

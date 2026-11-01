@@ -30,26 +30,18 @@ jobs:
         run: cargo test --workspace
       - name: Build release binaries
         run: cargo build --workspace --release
-      - name: Smoke-test Linux release installation
-        if: runner.os == 'Linux'
-        shell: bash
-        run: |
-          version="v$(cargo metadata --no-deps --format-version 1 | jq -r '.packages[] | select(.name == "moveshield-cli") | .version')"
-          target=x86_64-unknown-linux-gnu
-          archive="moveshield-${version}-${target}.tar.gz"
-          mkdir package
-          cp "target/release/moveshield" package/
-          cp LICENSE LICENSE-MIT LICENSE-APACHE README.md package/
-          tar -czf "$archive" -C package .
-          sha256sum "$archive" > SHA256SUMS
-          bash scripts/smoke-linux-install.sh "$archive" SHA256SUMS "$GITHUB_WORKSPACE"
-
   sui-compiler:
     name: Sui package compiler / stable
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-24.04, macos-15-intel, macos-latest, windows-latest]
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
       - uses: Swatinem/rust-cache@v2
       - name: Check Sui CLI formatting
         run: cargo fmt --manifest-path apps/sui-cli/Cargo.toml -- --check
@@ -57,3 +49,5 @@ jobs:
         run: cargo clippy --manifest-path apps/sui-cli/Cargo.toml --locked --all-targets -- -D warnings
       - name: Test Sui compiler CLI
         run: cargo test --manifest-path apps/sui-cli/Cargo.toml --locked
+      - name: Build default Sui CLI
+        run: cargo build --manifest-path apps/sui-cli/Cargo.toml --locked --release --bin moveshield

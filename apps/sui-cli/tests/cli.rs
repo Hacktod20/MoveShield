@@ -5,9 +5,23 @@ use std::process::Command;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
+fn default_binary_reports_package_version() {
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
+        .arg("--version")
+        .output()
+        .expect("failed to run MoveShield CLI");
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        format!("moveshield {}", env!("CARGO_PKG_VERSION"))
+    );
+}
+
+#[test]
 fn analyze_type_checks_with_official_compiler_and_emits_machine_readable_report() {
     let example = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../../example");
-    let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
         .args(["analyze", example.to_str().unwrap(), "--format", "json"])
         .output()
         .expect("failed to run MoveShield Sui CLI");
@@ -36,7 +50,7 @@ fn analyze_does_not_mutate_manifest_or_create_move_lock() {
         "fixture unexpectedly contains Move.lock"
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
         .args(["analyze", package.to_str().unwrap(), "--format", "json"])
         .output()
         .expect("failed to run MoveShield Sui CLI");
@@ -70,7 +84,7 @@ fn analyze_type_checks_local_dependency_but_reports_only_root_modules() {
         "fixture unexpectedly contains Move.lock"
     );
 
-    let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
         .args(["analyze", package.to_str().unwrap(), "--format", "json"])
         .output()
         .expect("failed to run MoveShield Sui CLI");
@@ -118,7 +132,7 @@ fn unsupported_constructs_fail_with_exact_locations_and_no_json() {
 
     for (fixture, kind, line, column) in cases {
         let package = fixtures.join(fixture);
-        let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+        let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
             .args(["analyze", package.to_str().unwrap(), "--format", "json"])
             .output()
             .expect("failed to run MoveShield Sui CLI");
@@ -159,7 +173,7 @@ fn failed_analysis_does_not_write_reports_in_any_format() {
     ] {
         let package = fixtures.join(fixture);
         for (format, report_name) in cases {
-            let mut command = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"));
+            let mut command = Command::new(env!("CARGO_BIN_EXE_moveshield"));
             command
                 .args(["analyze", package.to_str().unwrap(), "--format", format])
                 .current_dir(&output_directory);
@@ -186,7 +200,7 @@ fn failed_analysis_does_not_write_reports_in_any_format() {
 fn reports_only_the_first_unsupported_member_in_source_order() {
     let package =
         PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/multiple_unsupported");
-    let output = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"))
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
         .args(["analyze", package.to_str().unwrap(), "--format", "json"])
         .output()
         .expect("failed to run MoveShield Sui CLI");

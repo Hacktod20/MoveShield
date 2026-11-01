@@ -1,18 +1,20 @@
 # MoveShield Static Analysis Platform
 
-MoveShield is a modular static-analysis prototype for the Move programming language and Sui blockchain ecosystem. It demonstrates a compiler-adapter-to-reporting pipeline that analyzes Move source files, builds a call graph, and reports code-quality and security-pattern findings.
+MoveShield is an experimental static analyzer for Sui Move packages. The
+released `moveshield` CLI uses a pinned revision of the official Sui compiler
+to parse and type-check packages before applying MoveShield's analysis rules.
 
 MoveShield is available under either the [MIT License](LICENSE-MIT) or
 [Apache License 2.0](LICENSE-APACHE), at your option.
 
-> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.1 binary does not include this backend.
+> **Important limitation:** Compiler parsing and type checking do not make MoveShield's analysis complete. The model analyzes only selected root-package constructs, rejects unsupported constructs, does not verify bytecode, and its findings may be incomplete or incorrect. A clean scan is not evidence that a package is secure.
 
 ---
 
 ## Key Features
 
 - **Decoupled Architecture:** Built on a modular Rust Cargo workspace with strict dependency hierarchies.
-- **Robust Discovery & Adaptation:** Auto-discovers Move projects, resolves named addresses, and leverages a lightweight **Development Parser Fallback** when blockchain toolchains are missing.
+- **Official Sui compiler:** Resolves package dependencies and uses the pinned Sui compiler for parsing and type checking.
 - **Advanced Graph Engine:** Assembles a fully resolved, immutable **Call Graph** with recursion and unused function detection.
 - **Configurable Policies:** Implements extensible analysis rules, including **MS001 Cyclomatic Complexity**, governed by custom `moveshield.toml` settings.
 - **Reports:** Prints terminal results and exports JSON, Markdown, HTML, and SARIF 2.1.0 (`./moveshield.sarif` by default).
@@ -46,19 +48,19 @@ The workspace contains 15 supporting library crates:
 
 ### Release and support status
 
-The latest published release is `v0.1.1`. It contains the `moveshield` CLI,
-which uses a heuristic development parser and does not compile or type-check
-Move source. The source-built `moveshield-sui` CLI uses the official Sui
-compiler, is not included in release archives, and remains unreleased.
+The v0.1.2 release contains the compiler-backed `moveshield` CLI. The older
+v0.1.1 release used a heuristic parser. The legacy heuristic CLI remains
+available only as a source workspace tool; it is not the v0.1.2 release binary.
 
 Release archives are built for GNU/Linux x86_64, macOS x86_64, macOS Apple
 Silicon, and Windows x86_64. Ubuntu 24.04 x86_64 is the Linux environment
-validated for installation. The tested Linux executable uses `libc.so.6` and
-`libgcc_s.so.1` and requires GLIBC 2.39 or newer; other distributions are not
-yet claimed. macOS and Windows release builds run in CI, but their clean-machine
-installation paths have not been independently verified. Running a binary
-archive does not require Rust or a C compiler; building from source requires
-the stable Rust toolchain and a native C compiler.
+validated for installation. The release build checks that the Linux executable
+does not require GLIBC symbols newer than 2.39; this does not establish a lower
+minimum version, and other distributions are not yet claimed. macOS and Windows
+release builds run in CI, but their clean-machine installation paths have not
+been independently verified. Running a binary archive does not require Rust or
+a C compiler; building from source requires the stable Rust toolchain and a
+native C compiler.
 
 Release archives and `SHA256SUMS` are downloaded from the same GitHub Releases
 channel. The checksums detect accidental corruption; they are not a trusted
@@ -76,7 +78,7 @@ The commands install into `~/.local/bin` without `sudo`. They use `curl`,
 
 ```bash
 set -euo pipefail
-version=v0.1.1
+version=v0.1.2
 target=x86_64-unknown-linux-gnu
 archive="moveshield-${version}-${target}.tar.gz"
 release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
@@ -94,16 +96,15 @@ export PATH="$HOME/.local/bin:$PATH"
 moveshield --version
 ```
 
-The prebuilt binary does not require Rust or Cargo. `moveshield doctor` reports
-whether those optional source-build tools are installed and succeeds when they
-are absent. Open a new login shell after installation to load the saved `PATH`
-setting.
+The prebuilt binary does not require Rust or Cargo. Sui package dependency
+resolution may access the network when dependencies are not cached. Open a new
+login shell after installation to load the saved `PATH` setting.
 
-To upgrade, replace `v0.1.1` with the desired published tag and run:
+To upgrade, replace `v0.1.2` with the desired published tag and run:
 
 ```bash
 set -euo pipefail
-version=v0.1.1
+version=v0.1.2
 target=x86_64-unknown-linux-gnu
 archive="moveshield-${version}-${target}.tar.gz"
 release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
@@ -128,7 +129,7 @@ Use the archive matching the Mac. The commands below use macOS's built-in
 
 ```zsh
 set -euo pipefail
-version=v0.1.1
+version=v0.1.2
 target=aarch64-apple-darwin # use x86_64-apple-darwin on Intel
 archive="moveshield-${version}-${target}.tar.gz"
 release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
@@ -148,11 +149,11 @@ moveshield --version
 moveshield analyze /path/to/move-project --format terminal
 ```
 
-To upgrade, replace `v0.1.1` with the desired published tag and run:
+To upgrade, replace `v0.1.2` with the desired published tag and run:
 
 ```zsh
 set -euo pipefail
-version=v0.1.1
+version=v0.1.2
 target=aarch64-apple-darwin # use x86_64-apple-darwin on Intel
 archive="moveshield-${version}-${target}.tar.gz"
 release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
@@ -176,7 +177,7 @@ Run these commands in PowerShell. Windows includes `tar.exe`; no Rust toolchain
 is required.
 
 ```powershell
-$version = 'v0.1.1'
+$version = 'v0.1.2'
 $target = 'x86_64-pc-windows-msvc'
 $archive = "moveshield-$version-$target.tar.gz"
 $release = "https://github.com/Hacktod20/MoveShield/releases/download/$version"
@@ -203,10 +204,10 @@ moveshield.exe --version
 moveshield.exe analyze C:\path\to\move-project --format terminal
 ```
 
-For an upgrade, replace `v0.1.1` with the desired published tag and run:
+For an upgrade, replace `v0.1.2` with the desired published tag and run:
 
 ```powershell
-$version = 'v0.1.1'
+$version = 'v0.1.2'
 $target = 'x86_64-pc-windows-msvc'
 $archive = "moveshield-$version-$target.tar.gz"
 $release = "https://github.com/Hacktod20/MoveShield/releases/download/$version"
@@ -238,10 +239,6 @@ moveshield analyze ./example --format json
 moveshield analyze ./example --format sarif --output ./moveshield.sarif
 moveshield analyze ./example --format markdown --output ./report.md
 moveshield analyze ./example --format html --output ./report.html
-moveshield rules
-moveshield explain MS001
-moveshield config validate ./example
-moveshield init ./some-move-project
 ```
 
 The bundled `./example` scan reports findings and exits `2`; this is not an
@@ -251,29 +248,24 @@ for configuration errors. JSON is written to stdout unless `--output` is set.
 The default format prints a terminal report and writes `moveshield.sarif` in the
 current directory. A clean report is not evidence that a package is secure.
 
+The CLI type-checks the package with the official Sui compiler. Dependencies
+are resolved for type checking, but MoveShield findings are currently derived
+from supported constructs in the root package only. Unsupported enums, friend
+declarations, constants, specifications, macro forms, method-style imports,
+and method calls fail analysis with a source-located error rather than
+producing a partial report. This is not a full Sui build or bytecode verifier.
+
 ### Build and test from source
 
 ```bash
-cargo build --release --package moveshield-cli
-cargo run --package moveshield-cli -- doctor
-cargo test --workspace
+cargo build --locked --release --manifest-path apps/sui-cli/Cargo.toml --bin moveshield
+cargo test --locked --manifest-path apps/sui-cli/Cargo.toml
 ```
 
-To run the unreleased official Sui compiler-backed CLI from source:
-
-```bash
-cargo run --manifest-path apps/sui-cli/Cargo.toml -- analyze ./example --format json
-```
-
-This separate CLI downloads the pinned Sui compiler workspace, resolves package
-dependencies, and type-checks through the compiler's typing pass. It does not
-run bytecode verification or the full Sui build. The analysis model is partial:
-module-level enums, friend declarations, constants, specification blocks, macro
-functions and calls, method-style `use fun` imports, method calls, and
-specification expressions stop analysis with a source-located error. Analysis
-stops at the first unsupported construct in source order. Function bodies are
-not represented as a complete MoveShield AST. The published `v0.1.1` binary is
-the heuristic `moveshield` CLI and does not include this backend.
+Building from source requires stable Rust, a native C compiler/linker, and
+network access to fetch the pinned Sui compiler dependencies. The regular
+workspace CLI can still be run separately for development, but it uses the
+heuristic parser and is not the release product.
 
 ---
 

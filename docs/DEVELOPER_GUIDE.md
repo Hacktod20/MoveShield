@@ -103,9 +103,14 @@ cargo run --package moveshield-cli -- analyze ./example
 
 The default `analyze` mode prints a terminal report and writes `moveshield.sarif` in the current working directory. Use `--format json`, `--format markdown`, or `--format html` for those formats; `--output PATH` writes them to a file. Use `--format sarif --output PATH` to select a SARIF path, or `--format terminal` to skip report-file generation. Exit code `2` means findings were detected, not that the scan crashed.
 
-MoveShield currently uses a heuristic development parser. It does not type-check Move packages or consume the official Sui compiler AST; findings are not a security guarantee.
+The released CLI uses the official Sui compiler to parse and type-check the
+package. MoveShield models only selected root-package constructs; unsupported
+constructs fail analysis, dependencies are type-checked but not analyzed for
+findings, and this is not bytecode verification. Findings are not a security
+guarantee.
 
-Other available commands include `rules`, `explain MS001`, `init [PROJECT_DIR]`, `config validate [FILE_OR_PROJECT_DIR]`, `config show [FILE_OR_PROJECT_DIR]`, and `doctor`.
+The separate root-workspace development CLI still uses the heuristic parser
+and is not the release binary.
 
 ### 3.2 Example Modules & Behaviors Demonstrated
 
