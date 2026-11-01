@@ -21,15 +21,12 @@ test -x "$install_directory/moveshield"
 export PATH="$install_directory:$PATH"
 test "$(command -v moveshield)" = "$install_directory/moveshield"
 moveshield --version
-if command -v rustc >/dev/null 2>&1 && command -v cargo >/dev/null 2>&1; then
-    moveshield doctor
-else
-    doctor_status=0
-    moveshield doctor > "$temporary_root/doctor.out" 2>&1 || doctor_status=$?
-    test "$doctor_status" -eq 1
-    grep -F 'rustc: unavailable' "$temporary_root/doctor.out"
-    grep -F 'cargo: unavailable' "$temporary_root/doctor.out"
-fi
+mkdir -p "$temporary_root/empty-bin"
+PATH="$temporary_root/empty-bin" "$install_directory/moveshield" doctor \
+    > "$temporary_root/doctor.out"
+grep -F 'moveshield: running (prebuilt executable)' "$temporary_root/doctor.out"
+grep -F 'rustc: unavailable (optional; required only to build from source)' "$temporary_root/doctor.out"
+grep -F 'cargo: unavailable (optional; required only to build from source)' "$temporary_root/doctor.out"
 
 analysis_status=0
 moveshield analyze "$project_root/example" --format json \

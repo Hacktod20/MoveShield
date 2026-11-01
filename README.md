@@ -5,7 +5,7 @@ MoveShield is a modular static-analysis prototype for the Move programming langu
 MoveShield is available under either the [MIT License](LICENSE-MIT) or
 [Apache License 2.0](LICENSE-APACHE), at your option.
 
-> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.0 binary predates this backend.
+> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.1 binary does not include this backend.
 
 ---
 
@@ -46,7 +46,7 @@ The workspace contains 15 supporting library crates:
 
 ### Release and support status
 
-The latest published release is `v0.1.0`. It contains the `moveshield` CLI,
+The latest published release is `v0.1.1`. It contains the `moveshield` CLI,
 which uses a heuristic development parser and does not compile or type-check
 Move source. The source-built `moveshield-sui` CLI uses the official Sui
 compiler, is not included in release archives, and remains unreleased.
@@ -69,14 +69,14 @@ manually and install a newer archive using the verified steps below. This is a
 manual workflow, not authenticated update delivery: the checksum and archive
 come from the same unsigned release channel.
 
-### Ubuntu and other GNU/Linux x86_64
+### Ubuntu 24.04 and GNU/Linux x86_64 with GLIBC 2.39 or newer
 
 The commands install into `~/.local/bin` without `sudo`. They use `curl`,
 `tar`, `grep`, and `sha256sum`.
 
 ```bash
 set -euo pipefail
-version=v0.1.0
+version=v0.1.1
 target=x86_64-unknown-linux-gnu
 archive="moveshield-${version}-${target}.tar.gz"
 release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
@@ -92,12 +92,12 @@ grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.profile" || \
 	printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.profile"
 export PATH="$HOME/.local/bin:$PATH"
 moveshield --version
-moveshield doctor
 ```
 
-`doctor` checks for `rustc` and `cargo` and exits `1` when either is missing;
-they are developer tools, not runtime requirements for the downloaded binary.
-Open a new login shell after installation to load the saved `PATH` setting.
+The prebuilt binary does not require Rust or Cargo. `moveshield doctor` reports
+whether those optional source-build tools are installed and succeeds when they
+are absent. Open a new login shell after installation to load the saved `PATH`
+setting.
 
 To upgrade, replace `v0.1.1` with the desired published tag and run:
 
@@ -128,7 +128,7 @@ Use the archive matching the Mac. The commands below use macOS's built-in
 
 ```zsh
 set -euo pipefail
-version=v0.1.0
+version=v0.1.1
 target=aarch64-apple-darwin # use x86_64-apple-darwin on Intel
 archive="moveshield-${version}-${target}.tar.gz"
 release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
@@ -176,7 +176,7 @@ Run these commands in PowerShell. Windows includes `tar.exe`; no Rust toolchain
 is required.
 
 ```powershell
-$version = 'v0.1.0'
+$version = 'v0.1.1'
 $target = 'x86_64-pc-windows-msvc'
 $archive = "moveshield-$version-$target.tar.gz"
 $release = "https://github.com/Hacktod20/MoveShield/releases/download/$version"
@@ -272,7 +272,7 @@ module-level enums, friend declarations, constants, specification blocks, macro
 functions and calls, method-style `use fun` imports, method calls, and
 specification expressions stop analysis with a source-located error. Analysis
 stops at the first unsupported construct in source order. Function bodies are
-not represented as a complete MoveShield AST. The published `v0.1.0` binary is
+not represented as a complete MoveShield AST. The published `v0.1.1` binary is
 the heuristic `moveshield` CLI and does not include this backend.
 
 ---

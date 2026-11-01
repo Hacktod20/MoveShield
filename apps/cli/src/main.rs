@@ -17,7 +17,7 @@ use std::time::Instant;
 #[derive(Parser)]
 #[command(
     name = "moveshield",
-    version = "0.1.0",
+    version = env!("CARGO_PKG_VERSION"),
     about = "MoveShield static analysis platform"
 )]
 struct Cli {
@@ -327,22 +327,25 @@ fn load_config(path: &Path) -> Result<Config, String> {
 }
 
 fn doctor() -> u8 {
-    let mut status = 0;
+    println!("moveshield: running (prebuilt executable)");
     for tool in ["rustc", "cargo"] {
         match Command::new(tool).arg("--version").output() {
             Ok(output) if output.status.success() => {
-                println!("{tool}: {}", String::from_utf8_lossy(&output.stdout).trim());
+                println!(
+                    "{tool}: {} (optional; required only to build from source)",
+                    String::from_utf8_lossy(&output.stdout).trim()
+                );
             }
             Ok(output) => {
-                eprintln!(
-                    "{tool}: failed ({})",
+                println!(
+                    "{tool}: unavailable (optional; required only to build from source): {}",
                     String::from_utf8_lossy(&output.stderr).trim()
                 );
-                status = 1;
             }
             Err(error) => {
-                eprintln!("{tool}: unavailable ({error})");
-                status = 1;
+                println!(
+                    "{tool}: unavailable (optional; required only to build from source): {error}"
+                );
             }
         }
     }
@@ -355,7 +358,7 @@ fn doctor() -> u8 {
             "sui: not found (optional; analysis currently uses the heuristic development parser)"
         ),
     }
-    status
+    0
 }
 
 fn list_rules() -> u8 {
