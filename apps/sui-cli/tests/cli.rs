@@ -98,6 +98,13 @@ fn unsupported_constructs_fail_with_exact_locations_and_no_json() {
         ("unsupported_constant", "module-level constant", 2, 5),
         ("unsupported_enum", "module-level enum", 2, 5),
         ("unsupported_method_call", "method call expression", 7, 9),
+        ("unsupported_macro_call", "macro call expression", 4, 9),
+        (
+            "unsupported_spec_expression",
+            "specification expression",
+            3,
+            9,
+        ),
         (
             "unsupported_friend",
             "module-level friend declaration",
@@ -133,8 +140,7 @@ fn unsupported_constructs_fail_with_exact_locations_and_no_json() {
 
 #[test]
 fn failed_analysis_does_not_write_reports_in_any_format() {
-    let package =
-        PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures/unsupported_constant");
+    let fixtures = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("tests/fixtures");
     let output_directory = unique_temp_directory("moveshield-sui-no-report-test");
     fs::create_dir_all(&output_directory).expect("failed to create report output directory");
 
@@ -146,21 +152,31 @@ fn failed_analysis_does_not_write_reports_in_any_format() {
         ("html", Some("report.html")),
         ("all", Some("all.sarif")),
     ];
-    for (format, report_name) in cases {
-        let mut command = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"));
-        command
-            .args(["analyze", package.to_str().unwrap(), "--format", format])
-            .current_dir(&output_directory);
-        let report_path = report_name.map(|name| output_directory.join(name));
-        if let Some(path) = &report_path {
-            command.args(["--output", path.to_str().unwrap()]);
-        }
-        let output = command.output().expect("failed to run MoveShield Sui CLI");
+    for fixture in [
+        "unsupported_constant",
+        "unsupported_macro_call",
+        "unsupported_spec_expression",
+    ] {
+        let package = fixtures.join(fixture);
+        for (format, report_name) in cases {
+            let mut command = Command::new(env!("CARGO_BIN_EXE_moveshield-sui"));
+            command
+                .args(["analyze", package.to_str().unwrap(), "--format", format])
+                .current_dir(&output_directory);
+            let report_path = report_name.map(|name| output_directory.join(name));
+            if let Some(path) = &report_path {
+                command.args(["--output", path.to_str().unwrap()]);
+            }
+            let output = command.output().expect("failed to run MoveShield Sui CLI");
 
-        assert_eq!(output.status.code(), Some(1), "{format}");
-        assert!(output.stdout.is_empty(), "{format} emitted report content");
-        if let Some(path) = report_path {
-            assert!(!path.exists(), "{format} report was created");
+            assert_eq!(output.status.code(), Some(1), "{fixture} {format}");
+            assert!(
+                output.stdout.is_empty(),
+                "{fixture} {format} emitted report content"
+            );
+            if let Some(path) = report_path {
+                assert!(!path.exists(), "{fixture} {format} report was created");
+            }
         }
     }
     fs::remove_dir_all(output_directory).expect("failed to remove report output directory");

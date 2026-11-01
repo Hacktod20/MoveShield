@@ -260,9 +260,9 @@ fn convert_module(
                 if let FunctionBody_::Defined(sequence) = &function.body.value {
                     metrics.visit_sequence(sequence);
                 }
-                if let Some(loc) = &metrics.unsupported_method_call {
+                if let Some((kind, loc)) = &metrics.unsupported_expression {
                     return Err(unsupported_construct(
-                        "method call expression",
+                        kind,
                         loc,
                         mapped_files,
                         project_root,
@@ -542,10 +542,16 @@ fn convert_location(mapped_files: &MappedFiles, loc: &Loc, root: &Path) -> Resul
 struct AstMetrics {
     complexity: usize,
     calls: Vec<String>,
-    unsupported_method_call: Option<Loc>,
+    unsupported_expression: Option<(&'static str, Loc)>,
 }
 
 impl AstMetrics {
+    fn mark_unsupported(&mut self, kind: &'static str, loc: Loc) {
+        if self.unsupported_expression.is_none() {
+            self.unsupported_expression = Some((kind, loc));
+        }
+    }
+
     fn visit_sequence(&mut self, sequence: &Sequence) {
         for item in &sequence.1 {
             match &item.value {
@@ -563,6 +569,9 @@ impl AstMetrics {
     fn visit_exp(&mut self, expression: &Exp) {
         match &expression.value {
             Exp_::Call(function, arguments) => {
+                if ast::NameAccess::is_macro(&function.value).is_some() {
+                    self.mark_unsupported("macro call expression", expression.loc);
+                }
                 let name = function.value.to_string();
                 if !self.calls.contains(&name) {
                     self.calls.push(name);
@@ -648,9 +657,7 @@ impl AstMetrics {
             }
             Exp_::Dot(base, _, _) => self.visit_exp(base),
             Exp_::DotCall(base, _, _, _, _, arguments) => {
-                if self.unsupported_method_call.is_none() {
-                    self.unsupported_method_call = Some(expression.loc);
-                }
+                self.mark_unsupported("method call expression", expression.loc);
                 self.visit_exp(base);
                 for argument in &arguments.value {
                     self.visit_exp(argument);
@@ -663,6 +670,7 @@ impl AstMetrics {
                 }
             }
             Exp_::Cast(value, _) | Exp_::Annotate(value, _) => self.visit_exp(value),
+            Exp_::Spec(_) => self.mark_unsupported("specification expression", expression.loc),
             Exp_::Value(_)
             | Exp_::Name(_)
             | Exp_::Unit
@@ -670,7 +678,6 @@ impl AstMetrics {
             | Exp_::Return(_, None)
             | Exp_::Break(_, None)
             | Exp_::Continue(_)
-            | Exp_::Spec(_)
             | Exp_::UnresolvedError => {}
         }
     }
