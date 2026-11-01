@@ -40,7 +40,7 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
+          - os: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
           - os: macos-15-intel
             target: x86_64-apple-darwin
@@ -57,6 +57,26 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Build CLI
         run: cargo build --locked --release --package moveshield-cli --target ${{ matrix.target }}
+      - name: Verify Linux GLIBC baseline
+        if: matrix.target == 'x86_64-unknown-linux-gnu'
+        shell: bash
+        run: |
+          binary="target/${{ matrix.target }}/release/moveshield"
+          required_glibc="$(readelf --version-info "$binary" |
+            grep -oE 'GLIBC_[0-9]+(\.[0-9]+)*' |
+            sort -Vu |
+            tail -n 1)"
+          if [[ -z "$required_glibc" ]]; then
+            echo "Could not determine the binary's GLIBC symbol requirement" >&2
+            exit 1
+          fi
+          highest_allowed="GLIBC_2.39"
+          highest="$(printf '%s\n' "$required_glibc" "$highest_allowed" | sort -V | tail -n 1)"
+          if [[ "$highest" != "$highest_allowed" ]]; then
+            echo "Binary requires $required_glibc, newer than the supported $highest_allowed baseline" >&2
+            exit 1
+          fi
+          echo "Highest required GLIBC symbol: $required_glibc (maximum supported: $highest_allowed)"
       - name: Package executable
         shell: bash
         env:

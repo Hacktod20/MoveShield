@@ -5,11 +5,11 @@ MoveShield is a modular static-analysis prototype for the Move programming langu
 MoveShield is available under either the [MIT License](LICENSE-MIT) or
 [Apache License 2.0](LICENSE-APACHE), at your option.
 
-> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.0 binary predates this backend.
+> **Important limitation:** The default CLI parser is heuristic and is not compiler-verified. A separate source-built Sui CLI uses the official compiler and package resolver to parse and type-check packages, but MoveShield's analysis model is partial and does not verify bytecode. Findings may still be incomplete or incorrect, and a clean scan is not evidence that a package is secure. The published v0.1.1 binary does not include this backend.
 
 ---
 
-## 🚀 Key Features
+## Key Features
 
 - **Decoupled Architecture:** Built on a modular Rust Cargo workspace with strict dependency hierarchies.
 - **Robust Discovery & Adaptation:** Auto-discovers Move projects, resolves named addresses, and leverages a lightweight **Development Parser Fallback** when blockchain toolchains are missing.
@@ -19,7 +19,7 @@ MoveShield is available under either the [MIT License](LICENSE-MIT) or
 
 ---
 
-## 📦 Workspace Overview
+## Workspace Overview
 
 The workspace contains 15 supporting library crates:
 
@@ -42,75 +42,242 @@ The workspace contains 15 supporting library crates:
 
 ---
 
-## ⚡ Quick Start
+## Install and Quick Start
 
-### Download a CLI release
+### Release and support status
 
-Prebuilt CLI archives are published for Linux x86_64, macOS x86_64, macOS
-Apple Silicon, and Windows x86_64 on the
-[GitHub Releases page](https://github.com/Hacktod20/MoveShield/releases).
-Download the archive matching your system and verify it against `SHA256SUMS`
-before extracting it. Each archive contains the `moveshield` executable
-(`moveshield.exe` on Windows), README, and license texts. Releases are created
-from version tags such as `v0.1.0`, and the tag must match the CLI package
-version.
+The latest published release is `v0.1.1`. It contains the `moveshield` CLI,
+which uses a heuristic development parser and does not compile or type-check
+Move source. The source-built `moveshield-sui` CLI uses the official Sui
+compiler, is not included in release archives, and remains unreleased.
 
-### 1. Build the platform
-Verify you have the stable Rust compiler toolchain set up:
+Release archives are built for GNU/Linux x86_64, macOS x86_64, macOS Apple
+Silicon, and Windows x86_64. Ubuntu 24.04 x86_64 is the Linux environment
+validated for installation. The tested Linux executable uses `libc.so.6` and
+`libgcc_s.so.1` and requires GLIBC 2.39 or newer; other distributions are not
+yet claimed. macOS and Windows release builds run in CI, but their clean-machine
+installation paths have not been independently verified. Running a binary
+archive does not require Rust or a C compiler; building from source requires
+the stable Rust toolchain and a native C compiler.
+
+Release archives and `SHA256SUMS` are downloaded from the same GitHub Releases
+channel. The checksums detect accidental corruption; they are not a trusted
+signature and do not authenticate an artifact if that channel is compromised.
+MoveShield has no background updater, update check, or network activity during
+analysis. For v1, check the [release page](https://github.com/Hacktod20/MoveShield/releases)
+manually and install a newer archive using the verified steps below. This is a
+manual workflow, not authenticated update delivery: the checksum and archive
+come from the same unsigned release channel.
+
+### Ubuntu 24.04 and GNU/Linux x86_64 with GLIBC 2.39 or newer
+
+The commands install into `~/.local/bin` without `sudo`. They use `curl`,
+`tar`, `grep`, and `sha256sum`.
 
 ```bash
-cargo build --release
+set -euo pipefail
+version=v0.1.1
+target=x86_64-unknown-linux-gnu
+archive="moveshield-${version}-${target}.tar.gz"
+release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
+mkdir -p "$HOME/Downloads/moveshield-$version" "$HOME/.local/bin"
+cd "$HOME/Downloads/moveshield-$version"
+curl -fLO "$release/$archive"
+curl -fLO "$release/SHA256SUMS"
+grep -F "  $archive" SHA256SUMS | sha256sum --check
+tar -xzf "$archive" -C "$HOME/.local/bin"
+chmod 755 "$HOME/.local/bin/moveshield"
+touch "$HOME/.profile"
+grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.profile" || \
+	printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.profile"
+export PATH="$HOME/.local/bin:$PATH"
+moveshield --version
 ```
 
-### 2. Check your environment and run the tests
+The prebuilt binary does not require Rust or Cargo. `moveshield doctor` reports
+whether those optional source-build tools are installed and succeeds when they
+are absent. Open a new login shell after installation to load the saved `PATH`
+setting.
+
+To upgrade, replace `v0.1.1` with the desired published tag and run:
 
 ```bash
+set -euo pipefail
+version=v0.1.1
+target=x86_64-unknown-linux-gnu
+archive="moveshield-${version}-${target}.tar.gz"
+release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
+mkdir -p "$HOME/Downloads/moveshield-$version"
+cd "$HOME/Downloads/moveshield-$version"
+curl -fLO "$release/$archive"
+curl -fLO "$release/SHA256SUMS"
+grep -F "  $archive" SHA256SUMS | sha256sum --check
+tar -xzf "$archive" -C "$HOME/.local/bin"
+chmod 755 "$HOME/.local/bin/moveshield"
+moveshield --version
+```
+
+Extraction replaces the executable in place. To uninstall, run
+`rm -f "$HOME/.local/bin/moveshield"` and remove the PATH line from
+`~/.profile` if no other programs use that directory.
+
+### macOS x86_64 and Apple Silicon
+
+Use the archive matching the Mac. The commands below use macOS's built-in
+`shasum`; the default shell is zsh.
+
+```zsh
+set -euo pipefail
+version=v0.1.1
+target=aarch64-apple-darwin # use x86_64-apple-darwin on Intel
+archive="moveshield-${version}-${target}.tar.gz"
+release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
+mkdir -p "$HOME/Downloads/moveshield-$version" "$HOME/.local/bin"
+cd "$HOME/Downloads/moveshield-$version"
+curl -fLO "$release/$archive"
+curl -fLO "$release/SHA256SUMS"
+expected=$(grep -F "  $archive" SHA256SUMS | awk '{print $1}')
+printf '%s  %s\n' "$expected" "$archive" | shasum -a 256 --check
+tar -xzf "$archive" -C "$HOME/.local/bin"
+chmod 755 "$HOME/.local/bin/moveshield"
+touch "$HOME/.zprofile"
+grep -qxF 'export PATH="$HOME/.local/bin:$PATH"' "$HOME/.zprofile" || \
+	printf '%s\n' 'export PATH="$HOME/.local/bin:$PATH"' >> "$HOME/.zprofile"
+export PATH="$HOME/.local/bin:$PATH"
+moveshield --version
+moveshield analyze /path/to/move-project --format terminal
+```
+
+To upgrade, replace `v0.1.1` with the desired published tag and run:
+
+```zsh
+set -euo pipefail
+version=v0.1.1
+target=aarch64-apple-darwin # use x86_64-apple-darwin on Intel
+archive="moveshield-${version}-${target}.tar.gz"
+release="https://github.com/Hacktod20/MoveShield/releases/download/${version}"
+mkdir -p "$HOME/Downloads/moveshield-$version"
+cd "$HOME/Downloads/moveshield-$version"
+curl -fLO "$release/$archive"
+curl -fLO "$release/SHA256SUMS"
+expected=$(grep -F "  $archive" SHA256SUMS | awk '{print $1}')
+printf '%s  %s\n' "$expected" "$archive" | shasum -a 256 --check
+tar -xzf "$archive" -C "$HOME/.local/bin"
+chmod 755 "$HOME/.local/bin/moveshield"
+moveshield --version
+```
+
+To uninstall, run `rm -f "$HOME/.local/bin/moveshield"` and remove the PATH
+line from `~/.zprofile` if it is no longer needed.
+
+### Windows x86_64
+
+Run these commands in PowerShell. Windows includes `tar.exe`; no Rust toolchain
+is required.
+
+```powershell
+$version = 'v0.1.1'
+$target = 'x86_64-pc-windows-msvc'
+$archive = "moveshield-$version-$target.tar.gz"
+$release = "https://github.com/Hacktod20/MoveShield/releases/download/$version"
+$download = Join-Path $HOME "Downloads\MoveShield\$version"
+$install = Join-Path $HOME 'AppData\Local\Programs\MoveShield'
+New-Item -ItemType Directory -Force $download, $install | Out-Null
+Set-Location $download
+Invoke-WebRequest "$release/$archive" -OutFile $archive
+Invoke-WebRequest "$release/SHA256SUMS" -OutFile SHA256SUMS
+$line = (Select-String -Path SHA256SUMS -SimpleMatch "  $archive").Line
+if (-not $line) { throw "No checksum found for $archive" }
+$expected = ($line -split '\s+')[0].ToLowerInvariant()
+$actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw 'SHA-256 verification failed' }
+tar.exe -xzf $archive -C $install
+if ($LASTEXITCODE -ne 0) { throw 'Archive extraction failed' }
+$userPath = [Environment]::GetEnvironmentVariable('Path', 'User')
+if (($userPath -split ';') -notcontains $install) {
+	$updatedPath = if ($userPath) { "$userPath;$install" } else { $install }
+	[Environment]::SetEnvironmentVariable('Path', $updatedPath, 'User')
+}
+$env:Path = "$install;$env:Path"
+moveshield.exe --version
+moveshield.exe analyze C:\path\to\move-project --format terminal
+```
+
+For an upgrade, replace `v0.1.1` with the desired published tag and run:
+
+```powershell
+$version = 'v0.1.1'
+$target = 'x86_64-pc-windows-msvc'
+$archive = "moveshield-$version-$target.tar.gz"
+$release = "https://github.com/Hacktod20/MoveShield/releases/download/$version"
+$download = Join-Path $HOME "Downloads\MoveShield\$version"
+$install = Join-Path $HOME 'AppData\Local\Programs\MoveShield'
+New-Item -ItemType Directory -Force $download, $install | Out-Null
+Set-Location $download
+Invoke-WebRequest "$release/$archive" -OutFile $archive
+Invoke-WebRequest "$release/SHA256SUMS" -OutFile SHA256SUMS
+$line = (Select-String -Path SHA256SUMS -SimpleMatch "  $archive").Line
+if (-not $line) { throw "No checksum found for $archive" }
+$expected = ($line -split '\s+')[0].ToLowerInvariant()
+$actual = (Get-FileHash $archive -Algorithm SHA256).Hash.ToLowerInvariant()
+if ($actual -ne $expected) { throw 'SHA-256 verification failed' }
+tar.exe -xzf $archive -C $install
+if ($LASTEXITCODE -ne 0) { throw 'Archive extraction failed' }
+moveshield.exe --version
+```
+
+Extraction replaces the existing executable. To uninstall, run
+`Remove-Item "$HOME\AppData\Local\Programs\MoveShield\moveshield.exe"` and
+remove that directory from your user `Path` if it is no longer used.
+
+### Analyze a Move project
+
+```bash
+moveshield analyze ./example --format terminal
+moveshield analyze ./example --format json
+moveshield analyze ./example --format sarif --output ./moveshield.sarif
+moveshield analyze ./example --format markdown --output ./report.md
+moveshield analyze ./example --format html --output ./report.html
+moveshield rules
+moveshield explain MS001
+moveshield config validate ./example
+moveshield init ./some-move-project
+```
+
+The bundled `./example` scan reports findings and exits `2`; this is not an
+installation or runtime failure. Analysis exits `0` when no findings are
+reported, `1` for analysis or report failures, `2` when findings exist, and `3`
+for configuration errors. JSON is written to stdout unless `--output` is set.
+The default format prints a terminal report and writes `moveshield.sarif` in the
+current directory. A clean report is not evidence that a package is secure.
+
+### Build and test from source
+
+```bash
+cargo build --release --package moveshield-cli
 cargo run --package moveshield-cli -- doctor
 cargo test --workspace
 ```
 
-### 3. Analyze the Example Move Project
-Run the compiled CLI binary against the packaged demo:
+To run the unreleased official Sui compiler-backed CLI from source:
 
 ```bash
-cargo run --package moveshield-cli -- analyze ./example
-```
-
-This scans modules under `example/sources` and reports findings. The example is expected to exit with code `2` because findings were detected; this is not a build or runtime failure. The development parser does not compile or type-check Move code.
-
-### CLI commands
-
-```bash
-cargo run --package moveshield-cli -- rules
-cargo run --package moveshield-cli -- explain MS001
-cargo run --package moveshield-cli -- config validate ./example
-cargo run --package moveshield-cli -- init ./some-move-project
-
-# JSON is written to stdout unless --output is provided.
-cargo run --package moveshield-cli -- analyze ./example --format json
-cargo run --package moveshield-cli -- analyze ./example --format sarif --output ./moveshield.sarif
-cargo run --package moveshield-cli -- analyze ./example --format markdown --output ./report.md
-cargo run --package moveshield-cli -- analyze ./example --format html --output ./report.html
-cargo run --package moveshield-cli -- analyze ./example --format terminal
-
-# Run the separately built official Sui compiler-backed CLI.
 cargo run --manifest-path apps/sui-cli/Cargo.toml -- analyze ./example --format json
 ```
 
-By default, `analyze` prints the terminal report and writes `moveshield.sarif` to the current directory. Findings return exit code `2`, configuration errors return `3`, and other failures return `1`.
-
-The separate Sui CLI pulls the official Sui package tooling and Move compiler
-from a pinned MystenLabs/Sui repository revision. This avoids making ordinary
-MoveShield builds download the large Sui compiler workspace. It resolves
-package dependencies, runs the compiler through its typing pass, and derives
-root-package declarations, call references, complexity, and source locations
-from compiler AST data. It does not run bytecode verification or the complete
-Sui build pipeline, and MoveShield does not model every AST construct. The
-published v0.1.0 binary remains unchanged and does not include this backend.
+This separate CLI downloads the pinned Sui compiler workspace, resolves package
+dependencies, and type-checks through the compiler's typing pass. It does not
+run bytecode verification or the full Sui build. The analysis model is partial:
+module-level enums, friend declarations, constants, specification blocks, macro
+functions and calls, method-style `use fun` imports, method calls, and
+specification expressions stop analysis with a source-located error. Analysis
+stops at the first unsupported construct in source order. Function bodies are
+not represented as a complete MoveShield AST. The published `v0.1.1` binary is
+the heuristic `moveshield` CLI and does not include this backend.
 
 ---
 
-## 📘 Comprehensive Documentation
+## Comprehensive Documentation
 
 Detailed architecture specifications, developer onboarding, rules specifications, and ADR logs can be accessed directly in the `docs/` workspace:
 

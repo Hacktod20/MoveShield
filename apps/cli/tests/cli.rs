@@ -11,6 +11,23 @@ fn run_cli(args: &[&str]) -> Output {
         .expect("failed to run MoveShield CLI")
 }
 
+#[test]
+fn doctor_succeeds_without_optional_build_tools() {
+    let dir = temporary_directory();
+    let output = Command::new(env!("CARGO_BIN_EXE_moveshield"))
+        .arg("doctor")
+        .env("PATH", &dir)
+        .output()
+        .expect("failed to run MoveShield doctor");
+
+    assert_eq!(output.status.code(), Some(0));
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("moveshield: running (prebuilt executable)"));
+    assert!(stdout.contains("rustc: unavailable (optional; required only to build from source)"));
+    assert!(stdout.contains("cargo: unavailable (optional; required only to build from source)"));
+    fs::remove_dir_all(dir).expect("failed to remove test directory");
+}
+
 fn temporary_directory() -> PathBuf {
     let timestamp = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -22,6 +39,17 @@ fn temporary_directory() -> PathBuf {
     ));
     fs::create_dir(&path).expect("failed to create test directory");
     path
+}
+
+#[test]
+fn version_matches_package_release_version() {
+    let output = run_cli(&["--version"]);
+
+    assert_eq!(output.status.code(), Some(0));
+    assert_eq!(
+        String::from_utf8_lossy(&output.stdout).trim(),
+        format!("moveshield {}", env!("CARGO_PKG_VERSION"))
+    );
 }
 
 #[test]
